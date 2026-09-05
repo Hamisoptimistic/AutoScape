@@ -1744,6 +1744,17 @@ $xaml = @"
     </shell:WindowChrome.WindowChrome>
     
     <Window.Resources>
+        <!-- Fluent Acrylic Surfaces (Deep Dark Slate ~99% opacity, extremely subtle translucency) -->
+        <LinearGradientBrush x:Key="FluentAcrylicCardBackground" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FC242427" Offset="0.0"/>
+            <GradientStop Color="#FC18181A" Offset="1.0"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="FluentAcrylicCardBorder" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#38FFFFFF" Offset="0.0"/>
+            <GradientStop Color="#14FFFFFF" Offset="1.0"/>
+        </LinearGradientBrush>
+
         <Style TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -1815,11 +1826,14 @@ $xaml = @"
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ContextMenu">
-                        <Border Margin="8" Background="#1E1F24" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="8" Padding="4">
+                        <Border Margin="8" Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1" CornerRadius="8" Padding="0">
                             <Border.Effect>
                                 <DropShadowEffect BlurRadius="12" Opacity="0.5" ShadowDepth="3" Direction="270" Color="#000000"/>
                             </Border.Effect>
-                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                            <Grid>
+                                <Border CornerRadius="7" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                                <StackPanel Margin="4" IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                            </Grid>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -2005,10 +2019,13 @@ $xaml = @"
                                    AllowsTransparency="True"
                                    StaysOpen="False"
                                    Focusable="False">
-                                <Border Background="#1a1a1a" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="8" Margin="0,2,0,8" MinWidth="{TemplateBinding ActualWidth}" Padding="4">
-                                    <ScrollViewer CanContentScroll="False" MaxHeight="260" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
-                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                    </ScrollViewer>
+                                <Border Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1" CornerRadius="8" Margin="0,2,0,8" MinWidth="{TemplateBinding ActualWidth}" Padding="0">
+                                    <Grid>
+                                        <Border CornerRadius="7" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                                        <ScrollViewer Margin="4" CanContentScroll="False" MaxHeight="260" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Grid>
                                 </Border>
                             </Popup>
                         </Grid>
@@ -2202,11 +2219,14 @@ $xaml = @"
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToolTip">
-                        <Border Margin="8" Background="#1E1F24" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="8" Padding="12,8,14,8">
+                        <Border Margin="8" Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1" CornerRadius="8" Padding="0">
                             <Border.Effect>
                                 <DropShadowEffect BlurRadius="12" Opacity="0.5" ShadowDepth="3" Direction="270" Color="#000000"/>
                             </Border.Effect>
-                            <ContentPresenter/>
+                            <Grid>
+                                <Border CornerRadius="7" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                                <ContentPresenter Margin="12,8,14,8"/>
+                            </Grid>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -2442,10 +2462,12 @@ $xaml = @"
                     <Grid.RenderTransform>
                         <TranslateTransform x:Name="SpotlightPopupTransform" Y="0"/>
                     </Grid.RenderTransform>
-                    <Border Name="SpotlightPopupCard" Background="#1a1a1a" BorderBrush="#25FFFFFF" BorderThickness="1"
-                            CornerRadius="10" Padding="18" Width="490" Opacity="0" SnapsToDevicePixels="False">
-                        <StackPanel>
-                            <TextBlock Text="Choose your wallpaper source" FontSize="14" FontWeight="SemiBold" Foreground="#FAFAFA" Margin="0,0,0,14"/>
+                    <Border Name="SpotlightPopupCard" Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1"
+                            CornerRadius="10" Padding="0" Width="490" Opacity="0" SnapsToDevicePixels="False">
+                        <Grid>
+                            <Border CornerRadius="9" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                            <StackPanel Margin="18">
+                                <TextBlock Text="Choose your wallpaper source" FontSize="14" FontWeight="SemiBold" Foreground="#FAFAFA" Margin="0,0,0,14"/>
                             
                             <ComboBox Name="AutoDesktopSourceBox" Visibility="Collapsed" />
                             <ComboBox Name="AutoLockScreenSourceBox" Visibility="Collapsed" />
@@ -2575,7 +2597,8 @@ $xaml = @"
                             
                             <TextBlock Text="Changes are saved Automatically" FontSize="11" Foreground="#888888" HorizontalAlignment="Left" Margin="6,0,0,0" FontStyle="Italic"/>
                         </StackPanel>
-                    </Border>
+                    </Grid>
+                </Border>
                 </Grid>
             </Popup>
 
@@ -2587,10 +2610,12 @@ $xaml = @"
                     <Grid.RenderTransform>
                         <TranslateTransform x:Name="FiltersPopupTransform" Y="0"/>
                     </Grid.RenderTransform>
-                    <Border Name="FiltersPopupCard" Background="#1a1a1a" BorderBrush="#25FFFFFF" BorderThickness="1"
-                            CornerRadius="10" Padding="18" Width="440" Opacity="0" SnapsToDevicePixels="False">
+                    <Border Name="FiltersPopupCard" Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1"
+                            CornerRadius="10" Padding="0" Width="440" Opacity="0" SnapsToDevicePixels="False">
                         <!-- Removed DropShadowEffect to prevent gray box background bug -->
-                        <StackPanel>
+                        <Grid>
+                            <Border CornerRadius="9" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                            <StackPanel Margin="18">
                             <!-- 1. Dynamic Source Section (Region / API Key / Local Folder) -->
                             <StackPanel Name="ColRegion" Margin="0,4,0,14">
                                 <TextBlock Name="LabelRegion" Text="Region" FontSize="13" FontWeight="SemiBold" Foreground="White" Margin="2,0,0,6"/>
@@ -2684,7 +2709,8 @@ $xaml = @"
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
-                    </Border>
+                    </Grid>
+                </Border>
                 </Grid>
             </Popup>
 
@@ -2696,10 +2722,12 @@ $xaml = @"
                     <Grid.RenderTransform>
                         <TranslateTransform x:Name="ArchiveSearchPopupTransform" Y="0"/>
                     </Grid.RenderTransform>
-                    <Border Name="ArchiveSearchPopupCard" Background="#1a1a1a" BorderBrush="#25FFFFFF" BorderThickness="1"
-                            CornerRadius="10" Padding="18" Width="430" Opacity="0" SnapsToDevicePixels="False">
-                        <StackPanel>
-                            <!-- Header -->
+                    <Border Name="ArchiveSearchPopupCard" Background="{StaticResource FluentAcrylicCardBackground}" BorderBrush="{StaticResource FluentAcrylicCardBorder}" BorderThickness="1"
+                            CornerRadius="10" Padding="0" Width="430" Opacity="0" SnapsToDevicePixels="False">
+                        <Grid>
+                            <Border CornerRadius="9" Background="{DynamicResource FluentNoiseBrush}" IsHitTestVisible="False"/>
+                            <StackPanel Margin="18">
+                                <!-- Header -->
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,14">
                                 <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBlock Text="Search Bing wallpapers by date" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
@@ -2796,7 +2824,8 @@ $xaml = @"
                                 </Button>
                             </Grid>
                         </StackPanel>
-                    </Border>
+                    </Grid>
+                </Border>
                 </Grid>
             </Popup>
 
@@ -2909,6 +2938,35 @@ $xaml = @"
 
 $window = [Windows.Markup.XamlReader]::Parse($xaml)
 Write-TimingLog "SCRIPT: main window XAML parsed/instantiated ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
+
+# Create lightweight frozen micro-noise brush for Fluent Acrylic cards (~16 KB RAM, 0% CPU)
+$script:FluentNoiseBrush = $(
+    $noiseWidth = 64
+    $noiseHeight = 64
+    $stride = $noiseWidth * 4
+    $pixelBytes = New-Object byte[] ($noiseWidth * $noiseHeight * 4)
+    $rand = New-Object System.Random(1337)
+    for ($i = 0; $i -lt $pixelBytes.Length; $i += 4) {
+        $a = [byte]($rand.Next(2, 6))
+        $pixelBytes[$i] = $a     # B
+        $pixelBytes[$i + 1] = $a # G
+        $pixelBytes[$i + 2] = $a # R
+        $pixelBytes[$i + 3] = $a # A (Pbgra32 premultiplied)
+    }
+    $noiseSource = [System.Windows.Media.Imaging.BitmapSource]::Create(
+        $noiseWidth, $noiseHeight, 96.0, 96.0,
+        [System.Windows.Media.PixelFormats]::Pbgra32,
+        $null, $pixelBytes, $stride
+    )
+    $noiseSource.Freeze()
+    $noiseBrush = New-Object System.Windows.Media.ImageBrush($noiseSource)
+    $noiseBrush.TileMode = [System.Windows.Media.TileMode]::Tile
+    $noiseBrush.Viewport = [System.Windows.Rect]::new(0, 0, $noiseWidth, $noiseHeight)
+    $noiseBrush.ViewportUnits = [System.Windows.Media.BrushMappingMode]::Absolute
+    $noiseBrush.Freeze()
+    $noiseBrush
+)
+$window.Resources.Add('FluentNoiseBrush', $script:FluentNoiseBrush)
 
 if (-not [System.Windows.Application]::Current) {
     $script:wpfApp = New-Object System.Windows.Application
