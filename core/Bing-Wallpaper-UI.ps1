@@ -1750,10 +1750,7 @@ $xaml = @"
             <GradientStop Color="#FC18181A" Offset="1.0"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="FluentAcrylicCardBorder" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#38FFFFFF" Offset="0.0"/>
-            <GradientStop Color="#14FFFFFF" Offset="1.0"/>
-        </LinearGradientBrush>
+        <SolidColorBrush x:Key="FluentAcrylicCardBorder" Color="#15FFFFFF"/>
 
         <Style TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
