@@ -2295,6 +2295,31 @@ $xaml = @"
                 </Style.Triggers>
             </Style>
         </Grid.Style>
+
+        <!-- Ambient Hero Backdrop (Sharper & more visible, smoothly feathered) -->
+        <Grid Name="HeroBackdropHost" VerticalAlignment="Top" Height="420" IsHitTestVisible="False" ClipToBounds="True" Panel.ZIndex="0">
+            <Grid.OpacityMask>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#45FFFFFF" Offset="0.0"/>
+                    <GradientStop Color="#35FFFFFF" Offset="0.35"/>
+                    <GradientStop Color="#10FFFFFF" Offset="0.75"/>
+                    <GradientStop Color="#00000000" Offset="1.0"/>
+                </LinearGradientBrush>
+            </Grid.OpacityMask>
+            <Image Name="HeroBackdropImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.Effect>
+                    <BlurEffect Radius="16" RenderingBias="Performance"/>
+                </Image.Effect>
+            </Image>
+            <Border IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#30000000" Offset="0.0"/>
+                        <GradientStop Color="#00000000" Offset="0.5"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+        </Grid>
         <!-- Top-right custom window caption buttons (Minimize, Maximize/Restore, Close) -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="999" shell:WindowChrome.IsHitTestVisibleInChrome="True">
             <Button Name="CaptionMinBtn" Style="{StaticResource CaptionButtonStyle}" ToolTip="Minimize">
@@ -3634,6 +3659,23 @@ function Update-FiltersBtnText {
 }
 $GalleryPanel = $window.FindName('GalleryPanel')
 $GalleryScrollViewer = $window.FindName('GalleryScrollViewer')
+$HeroBackdropImage = $window.FindName('HeroBackdropImage')
+
+function Update-HeroBackdrop($bitmapSource) {
+    if (-not $HeroBackdropImage) { return }
+    try {
+        if (-not $bitmapSource) {
+            $HeroBackdropImage.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $HeroBackdropImage.Opacity = 0
+            $HeroBackdropImage.Source = $null
+            return
+        }
+        $HeroBackdropImage.Source = $bitmapSource
+        $fadeAnim = New-Object System.Windows.Media.Animation.DoubleAnimation -ArgumentList 1.0, (New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds(500)))
+        $HeroBackdropImage.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $fadeAnim)
+    }
+    catch {}
+}
 $script:galleryScrollBar = $null
 $script:scrollHideTimer = $null
 
@@ -5924,6 +5966,9 @@ function Render-GalleryGrid {
                 $bitmap.Freeze()
 
                 $imageControl.Source = $bitmap
+                if ($current -eq 1 -and -not $Append) {
+                    Update-HeroBackdrop $bitmap
+                }
 
                 # Use pre-computed accent color from background worker (ZERO UI freeze!)
                 $hasValidAccent = ($image.accentR -ne $null -and $image.accentG -ne $null -and $image.accentB -ne $null -and -not ($image.accentR -eq 70 -and $image.accentG -eq 70 -and $image.accentB -eq 70))
@@ -6186,6 +6231,7 @@ function Load-Gallery {
             if ($PexelsEmptyStatePanel) { $PexelsEmptyStatePanel.Visibility = [System.Windows.Visibility]::Collapsed }
             if ($GalleryScrollViewer) { $GalleryScrollViewer.Visibility = [System.Windows.Visibility]::Collapsed }
             $StatusText.Text = "Select a local wallpaper folder to display images."
+            Update-HeroBackdrop $null
             $GalleryPanel.Children.Clear()
             return
         }
