@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [switch]$AutoApply,
     [string]$Region = 'en-US',
@@ -1574,7 +1574,19 @@ function Get-DetectedRegionCode {
 }
 
 if ($AutoApply) {
+    function Write-AutoLog {
+        param([string]$Message)
+        try {
+            $logDir = Join-Path $env:LOCALAPPDATA 'AutoScape\logs'
+            if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+            $logFile = Join-Path $logDir 'autoapply.log'
+            $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            "[$timestamp] $Message" | Out-File -FilePath $logFile -Append -Encoding UTF8
+        } catch {}
+    }
+
     try {
+        Write-AutoLog "--- AutoApply Invoked ---"
         $savedSettings = Load-Settings
         if ($savedSettings) {
             if ($PSBoundParameters.ContainsKey('Region') -eq $false -and $savedSettings.Region -and $savedSettings.Region -ne 'auto') { $Region = $savedSettings.Region }
@@ -1597,8 +1609,11 @@ if ($AutoApply) {
             $savedSettings.LastAutoDesktopSource -eq $desktopSource -and 
             $savedSettings.LastAutoLockSource -eq $lockSource) {
             # Already applied for today, exit quietly without redundant work
+            Write-AutoLog "Skipping: Already auto-applied for today ($todayStamp)."
             [Environment]::Exit(0)
         }
+
+        Write-AutoLog "Proceeding: Downloading and applying new wallpapers (Desktop: $desktopSource, Lock: $lockSource)..."
 
         function Invoke-AutoSource {
             param([string]$Source, [string]$Target)
@@ -1647,10 +1662,13 @@ if ($AutoApply) {
                     $images = Get-BingImages -Region $Region
                     if (-not $images -or $images.Count -eq 0) { throw "No wallpaper was returned by Bing." }
                     Set-BingImage -Image $images[0] -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
+                    Write-AutoLog "Attempt ${attempt}: Successfully applied Bing to Both."
                     $applySuccess = $true
                 }
                 catch {
-                    $errors += "AutoApply Both: $($_.Exception.Message)"
+                    $errMsg = $_.Exception.Message
+                    Write-AutoLog "Attempt $attempt failed (Bing Both): $errMsg"
+                    $errors += "AutoApply Both: $errMsg"
                 }
             }
             elseif ($desktopSource -eq 'Local' -and $lockSource -eq 'Local') {
@@ -1659,16 +1677,22 @@ if ($AutoApply) {
                     $images = Get-LocalImages -FolderPath $localFolder -Count 1
                     if (-not $images -or $images.Count -eq 0) { throw "No wallpaper was found in the local folder." }
                     Set-BingImage -Image $images[0] -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
+                    Write-AutoLog "Attempt ${attempt}: Successfully applied Local to Both."
                     $applySuccess = $true
                 }
                 catch {
-                    $errors += "AutoApply Both Local: $($_.Exception.Message)"
+                    $errMsg = $_.Exception.Message
+                    Write-AutoLog "Attempt $attempt failed (Local Both): $errMsg"
+                    $errors += "AutoApply Both Local: $errMsg"
                 }
             }
             else {
-                try { Invoke-AutoSource -Source $desktopSource -Target 'Desktop' } catch { $errors += "Desktop: $($_.Exception.Message)" }
-                try { Invoke-AutoSource -Source $lockSource -Target 'Lock screen' } catch { $errors += "Lock screen: $($_.Exception.Message)" }
-                if ($errors.Count -eq 0) { $applySuccess = $true }
+                try { Invoke-AutoSource -Source $desktopSource -Target 'Desktop' } catch { $errMsg = $_.Exception.Message; Write-AutoLog "Attempt $attempt failed (Desktop): $errMsg"; $errors += "Desktop: $errMsg" }
+                try { Invoke-AutoSource -Source $lockSource -Target 'Lock screen' } catch { $errMsg = $_.Exception.Message; Write-AutoLog "Attempt $attempt failed (Lock screen): $errMsg"; $errors += "Lock screen: $errMsg" }
+                if ($errors.Count -eq 0) { 
+                    Write-AutoLog "Attempt ${attempt}: Successfully applied to Desktop and Lock screen."
+                    $applySuccess = $true 
+                }
             }
 
             if ($applySuccess) {
@@ -1682,6 +1706,7 @@ if ($AutoApply) {
         }
 
         if (-not $applySuccess) {
+            Write-AutoLog "Final give-up: Failed after 5 attempts. Last error: $lastApplyError"
             throw $lastApplyError
         }
 
@@ -1706,12 +1731,17 @@ if ($AutoApply) {
                 LastAutoLockSource    = $lockSource
             }
             $settingsObj | ConvertTo-Json -Depth 2 | Set-Content -LiteralPath $script:settingsPath
+            Write-AutoLog "Settings saved successfully (LastAutoAppliedDate updated)."
         }
-        catch {}
+        catch {
+            Write-AutoLog "Warning: Failed to save settings. $($_.Exception.Message)"
+        }
 
+        Write-AutoLog "AutoApply completed successfully."
         [Environment]::Exit(0)
     }
     catch {
+        Write-AutoLog "Fatal Error: $($_.Exception.Message)"
         Write-Error "Failed to apply AutoScape wallpaper: $($_.Exception.Message)"
         [Environment]::Exit(1)
     }
@@ -5277,15 +5307,16 @@ function Update-SpotlightScheduledTaskAsync {
                         $action = New-ScheduledTaskAction -Execute $conhostExe -Argument $fullArgs -WorkingDirectory $workingDir
                     }
 
-                    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden -ExecutionTimeLimit (New-TimeSpan -Hours 2) -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1)
+                    $settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden -ExecutionTimeLimit (New-TimeSpan -Hours 2) -RestartCount 144 -RestartInterval (New-TimeSpan -Minutes 5)
                     if ($Schedule -eq 'Test1Minute') {
                         # Temporary test mode: repeat once per minute so Auto can be verified quickly.
                         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
                     }
                     else {
                         # Daily starting at local midnight, repeating every hour for 24h.
-                        # PC is never woken up from sleep. If asleep at midnight, it catches up when awake,
-                        # and retries 5 times with a 1-minute gap if missed or network is unavailable.
+                        # Task requires a network connection to start. If offline at midnight, it will
+                        # automatically wait and fire as soon as the internet connects. If the download
+                        # itself fails, it retries up to 144 times with a 5-minute gap (12 hours).
                         $trigger = New-ScheduledTaskTrigger -Daily -At '12:00AM'
                         $trigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 1)).Repetition
                     }
