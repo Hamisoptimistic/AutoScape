@@ -3661,16 +3661,39 @@ $GalleryPanel = $window.FindName('GalleryPanel')
 $GalleryScrollViewer = $window.FindName('GalleryScrollViewer')
 $HeroBackdropImage = $window.FindName('HeroBackdropImage')
 
-function Update-HeroBackdrop($bitmapSource) {
+function Update-HeroBackdrop($sourceInput) {
     if (-not $HeroBackdropImage) { return }
     try {
-        if (-not $bitmapSource) {
+        if (-not $sourceInput) {
             $HeroBackdropImage.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
             $HeroBackdropImage.Opacity = 0
             $HeroBackdropImage.Source = $null
             return
         }
-        $HeroBackdropImage.Source = $bitmapSource
+
+        $uriToLoad = $null
+        if ($sourceInput -is [string]) {
+            $uriToLoad = if ($sourceInput -match '^https?://') { New-Object System.Uri($sourceInput) } else { New-Object System.Uri((Resolve-Path -LiteralPath $sourceInput).Path) }
+        }
+        elseif ($sourceInput -is [System.Windows.Media.Imaging.BitmapImage] -and $sourceInput.UriSource) {
+            $uriToLoad = $sourceInput.UriSource
+        }
+
+        $backdropBitmap = $null
+        if ($uriToLoad) {
+            $backdropBitmap = New-Object System.Windows.Media.Imaging.BitmapImage
+            $backdropBitmap.BeginInit()
+            $backdropBitmap.UriSource = $uriToLoad
+            $backdropBitmap.DecodePixelWidth = 96
+            $backdropBitmap.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $backdropBitmap.EndInit()
+            $backdropBitmap.Freeze()
+        }
+        elseif ($sourceInput -is [System.Windows.Media.Imaging.BitmapSource]) {
+            $backdropBitmap = $sourceInput
+        }
+
+        $HeroBackdropImage.Source = $backdropBitmap
         $fadeAnim = New-Object System.Windows.Media.Animation.DoubleAnimation -ArgumentList 1.0, (New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds(500)))
         $HeroBackdropImage.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $fadeAnim)
 
@@ -5980,7 +6003,7 @@ function Render-GalleryGrid {
 
                 $imageControl.Source = $bitmap
                 if ($current -eq 1 -and -not $Append) {
-                    Update-HeroBackdrop $bitmap
+                    Update-HeroBackdrop $imagePathToLoad
                 }
 
                 # Use pre-computed accent color from background worker (ZERO UI freeze!)
