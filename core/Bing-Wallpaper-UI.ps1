@@ -5244,12 +5244,20 @@ function Update-SpotlightScheduledTaskAsync {
                 if ($Enable) {
                     if (-not ($ScriptPath -and (Test-Path -LiteralPath $ScriptPath))) { return }
 
-                    $conhostExe = Join-Path $env:WINDIR 'System32\conhost.exe'
-                    $powershellExe = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
-                    $fullArgs = "--headless `"$powershellExe`" -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" -AutoApply"
                     $workingDir = Split-Path -Parent $ScriptPath
 
-                    $action = New-ScheduledTaskAction -Execute $conhostExe -Argument $fullArgs -WorkingDirectory $workingDir
+                    if ($ScriptPath -match '\.exe$') {
+                        # Standalone compiled executable (AutoScape.exe): invoke directly with -AutoApply
+                        $action = New-ScheduledTaskAction -Execute $ScriptPath -Argument "-AutoApply" -WorkingDirectory $workingDir
+                    }
+                    else {
+                        # PowerShell script (.ps1): invoke via headless conhost / powershell
+                        $conhostExe = Join-Path $env:WINDIR 'System32\conhost.exe'
+                        $powershellExe = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+                        $fullArgs = "--headless `"$powershellExe`" -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" -AutoApply"
+                        $action = New-ScheduledTaskAction -Execute $conhostExe -Argument $fullArgs -WorkingDirectory $workingDir
+                    }
+
                     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden -ExecutionTimeLimit (New-TimeSpan -Hours 2) -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1)
                     if ($Schedule -eq 'Test1Minute') {
                         # Temporary test mode: repeat once per minute so Auto can be verified quickly.
@@ -5274,7 +5282,16 @@ function Update-SpotlightScheduledTaskAsync {
             catch {}
         }).AddArgument($bgEnable).AddArgument($bgSchedule).AddArgument($bgScriptPath)
 
-    $null = $ps.BeginInvoke()
+    $asyncOp = $ps.BeginInvoke()
+    [System.Threading.Tasks.Task]::Run([Action] {
+        try {
+            $ps.EndInvoke($asyncOp) | Out-Null
+        }
+        catch {}
+        finally {
+            try { $ps.Dispose() } catch {}
+        }
+    })
 }
 
 function Set-SpotlightState {
@@ -5694,12 +5711,12 @@ function Get-CleanGeographicLocation($image) {
     if ($image.source -eq 'Spotlight') {
         if ($image.title) { $raw = $image.title.Trim() }
     }
-    # Priority 2: Bing copyright strings follow "Location (Â© Photographer/Agency)"
+    # Priority 2: Bing copyright strings follow "Location (Copyright Photographer/Agency)"
     elseif ($image.copyright -and $image.source -ne 'Local') {
         $c = $image.copyright -replace '\s*\(.*?\)\s*$', ''
-        $c = ($c -replace '^[Â©\s]+', '').Trim()
+        $c = ($c -replace '^[\u00A9\s]+', '').Trim()
         $c = ($c -replace '^Photo by .+? on Pexels', '').Trim()
-        if ($c.Length -gt 2 -and $c -notmatch '^(by |Â©|c )?[A-Z][a-z]+ [A-Z][a-z]+(\/iStock|\/Getty|\/Moment|\/500px)?$') {
+        if ($c.Length -gt 2 -and $c -notmatch '^(by |\u00A9|c )?[A-Z][a-z]+ [A-Z][a-z]+(\/iStock|\/Getty|\/Moment|\/500px)?$') {
             $raw = $c
         }
     }

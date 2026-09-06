@@ -100,6 +100,11 @@ Filename: "powershell.exe"; \
     Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\core\Bing-Wallpaper-UI.ps1"""; \
     WorkingDir: "{app}\core"; Description: "Launch AutoScape"; Flags: postinstall nowait skipifsilent unchecked; Check: not Is64BitInstallMode
 
+[UninstallRun]
+; Clean up any scheduled tasks registered by the Auto wallpaper feature
+Filename: "schtasks.exe"; Parameters: "/Delete /TN AutoScapeDailyWallpaper /F"; Flags: runhidden; RunOnceId: "DelAutoScapeTask"
+Filename: "schtasks.exe"; Parameters: "/Delete /TN BingWallpaperSpotlight /F"; Flags: runhidden; RunOnceId: "DelLegacyTask"
+
 [Code]
 // Initialize Wizard: Make destination location visible but completely muted / non-clickable
 procedure InitializeWizard();
