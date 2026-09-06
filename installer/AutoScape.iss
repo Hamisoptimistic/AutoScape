@@ -36,9 +36,18 @@ OutputBaseFilename=AutoScape-Setup
 SetupIconFile=..\core\assets\app.ico
 UninstallDisplayIcon={app}\core\assets\app.ico
 
-; High-efficiency compression
-Compression=lzma2/max
-SolidCompression=yes
+; PE Header & Version Metadata (Crucial to avoid Antivirus ML/Heuristic False Positives)
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=AutoScape Modern Bing & Spotlight Wallpaper Changer
+VersionInfoTextVersion={#MyAppVersion}
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
+VersionInfoCopyright=Copyright (C) 2026 AutoScape Team
+
+; Compression (Non-solid standard LZMA2 avoids 'Obfuscated / Packed' entropy triggers in heuristic scanners)
+Compression=lzma2/normal
+SolidCompression=no
 
 ; Modern Windows styling
 WizardStyle=modern
