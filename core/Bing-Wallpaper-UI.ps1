@@ -2297,7 +2297,7 @@ $xaml = @"
         </Grid.Style>
 
         <!-- Ambient Hero Backdrop (Sharper & more visible, smoothly feathered) -->
-        <Grid Name="HeroBackdropHost" VerticalAlignment="Top" Height="420" IsHitTestVisible="False" ClipToBounds="True" Panel.ZIndex="0">
+        <Grid Name="HeroBackdropHost" VerticalAlignment="Top" Height="260" IsHitTestVisible="False" ClipToBounds="True" Panel.ZIndex="0">
             <Grid.OpacityMask>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#45FFFFFF" Offset="0.0"/>
@@ -2306,9 +2306,9 @@ $xaml = @"
                     <GradientStop Color="#00000000" Offset="1.0"/>
                 </LinearGradientBrush>
             </Grid.OpacityMask>
-            <Image Name="HeroBackdropImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" RenderOptions.BitmapScalingMode="HighQuality">
+            <Image Name="HeroBackdropImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" RenderOptions.BitmapScalingMode="LowQuality">
                 <Image.Effect>
-                    <BlurEffect Radius="16" RenderingBias="Performance"/>
+                    <BlurEffect Radius="10" RenderingBias="Performance"/>
                 </Image.Effect>
             </Image>
             <Border IsHitTestVisible="False">
@@ -3673,6 +3673,19 @@ function Update-HeroBackdrop($bitmapSource) {
         $HeroBackdropImage.Source = $bitmapSource
         $fadeAnim = New-Object System.Windows.Media.Animation.DoubleAnimation -ArgumentList 1.0, (New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds(500)))
         $HeroBackdropImage.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $fadeAnim)
+
+        # Smooth, debounced memory flush well AFTER animation completes (zero UI jitter/lag)
+        if ($script:heroBackdropFlushTimer) { $script:heroBackdropFlushTimer.Stop() }
+        $script:heroBackdropFlushTimer = New-Object System.Windows.Threading.DispatcherTimer([System.Windows.Threading.DispatcherPriority]::Background)
+        $script:heroBackdropFlushTimer.Interval = [TimeSpan]::FromMilliseconds(1200)
+        $script:heroBackdropFlushTimer.Add_Tick({
+            if ($script:heroBackdropFlushTimer) {
+                $script:heroBackdropFlushTimer.Stop()
+                $script:heroBackdropFlushTimer = $null
+            }
+            Invoke-MemoryFlush -Reason "HeroBackdrop-Settled" -Async
+        })
+        $script:heroBackdropFlushTimer.Start()
     }
     catch {}
 }
