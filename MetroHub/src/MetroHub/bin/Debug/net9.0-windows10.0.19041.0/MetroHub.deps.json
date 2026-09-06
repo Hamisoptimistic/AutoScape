@@ -1,0 +1,91 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "MetroHub/1.0.0": {
+        "dependencies": {
+          "Hardcodet.NotifyIcon.Wpf": "2.0.1",
+          "WPF.UI": "3.4.2.7",
+          "gong-wpf-dragdrop": "4.0.0",
+          "runtimepack.Microsoft.Windows.SDK.NET.Ref": "10.0.19041.57"
+        },
+        "runtime": {
+          "MetroHub.dll": {}
+        }
+      },
+      "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.19041.57": {
+        "runtime": {
+          "Microsoft.Windows.SDK.NET.dll": {
+            "assemblyVersion": "10.0.19041.38",
+            "fileVersion": "10.0.19041.55"
+          },
+          "WinRT.Runtime.dll": {
+            "assemblyVersion": "2.2.0.0",
+            "fileVersion": "2.2.0.48161"
+          }
+        }
+      },
+      "gong-wpf-dragdrop/4.0.0": {
+        "runtime": {
+          "lib/net8.0-windows7.0/GongSolutions.WPF.DragDrop.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.0.0"
+          }
+        }
+      },
+      "Hardcodet.NotifyIcon.Wpf/2.0.1": {
+        "runtime": {
+          "lib/net8.0-windows7.0/Hardcodet.NotifyIcon.Wpf.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.1.2717"
+          }
+        }
+      },
+      "WPF.UI/3.4.2.7": {
+        "runtime": {
+          "lib/net451/WPF.UI.dll": {
+            "assemblyVersion": "3.4.2.7",
+            "fileVersion": "3.4.2.7"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MetroHub/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.19041.57": {
+      "type": "runtimepack",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "gong-wpf-dragdrop/4.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nDj86v1XHhgmQR8PPo/uDDp/xdLDxcqZdvIwSxWAHQPiRX/GBXK13FYY0C2xQow9RSl6j5FKLk8xoYrdb52vqg==",
+      "path": "gong-wpf-dragdrop/4.0.0",
+      "hashPath": "gong-wpf-dragdrop.4.0.0.nupkg.sha512"
+    },
+    "Hardcodet.NotifyIcon.Wpf/2.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-dtxmeZXzV2GzSm91aZ3hqzgoeVoARSkDPVCYfhVUNyyKBWYxMgNC0EcLiSYxD4Uc4alq/2qb3SmV8DgAENLRLQ==",
+      "path": "hardcodet.notifyicon.wpf/2.0.1",
+      "hashPath": "hardcodet.notifyicon.wpf.2.0.1.nupkg.sha512"
+    },
+    "WPF.UI/3.4.2.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-sE+BGb+mFJB96wQ8wArVBqoUQkj1/vOV7GdFb1iWD5Y8iwHSIX83aEcda5gxzCOH2h5ifD9ul7JEm7mvohbgMg==",
+      "path": "wpf.ui/3.4.2.7",
+      "hashPath": "wpf.ui.3.4.2.7.nupkg.sha512"
+    }
+  }
+}

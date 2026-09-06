@@ -1,0 +1,2 @@
+D:\MetroHub\dist\MetroHub.pdb
+D:\MetroHub\dist\MetroHub.exe
