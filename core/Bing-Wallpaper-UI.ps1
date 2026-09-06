@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$AutoApply,
     [string]$Region = 'en-US',
@@ -1081,7 +1081,7 @@ function Wait-NativeExtraCompile {
 }
 
 # Dynamically detect executable version
-$script:appVersion = [Version]'1.0.276'
+$script:appVersion = [Version]'1.0.324'
 try {
     $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
     if ($currentProc -and $currentProc -notmatch '^(?i:powershell|pwsh)(?:\.exe)?$' -and (Test-Path -LiteralPath $currentProc)) {
@@ -4635,7 +4635,7 @@ function Start-RefreshAnimation {
 
     $rotation = [System.Windows.Media.RotateTransform]$RefreshIcon.RenderTransform
     
-    # Fluent Snappy Settle: 0° -> 360° with CubicEase EaseOut (680ms)
+    # Fluent Snappy Settle: 0Â° -> 360Â° with CubicEase EaseOut (680ms)
     $spin = New-Object System.Windows.Media.Animation.DoubleAnimation -ArgumentList 0.0, 360.0, (New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds(680)))
     $easing = New-Object System.Windows.Media.Animation.CubicEase
     $easing.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseOut
@@ -5694,12 +5694,12 @@ function Get-CleanGeographicLocation($image) {
     if ($image.source -eq 'Spotlight') {
         if ($image.title) { $raw = $image.title.Trim() }
     }
-    # Priority 2: Bing copyright strings follow "Location (© Photographer/Agency)"
+    # Priority 2: Bing copyright strings follow "Location (Â© Photographer/Agency)"
     elseif ($image.copyright -and $image.source -ne 'Local') {
         $c = $image.copyright -replace '\s*\(.*?\)\s*$', ''
-        $c = ($c -replace '^[©\s]+', '').Trim()
+        $c = ($c -replace '^[Â©\s]+', '').Trim()
         $c = ($c -replace '^Photo by .+? on Pexels', '').Trim()
-        if ($c.Length -gt 2 -and $c -notmatch '^(by |©|c )?[A-Z][a-z]+ [A-Z][a-z]+(\/iStock|\/Getty|\/Moment|\/500px)?$') {
+        if ($c.Length -gt 2 -and $c -notmatch '^(by |Â©|c )?[A-Z][a-z]+ [A-Z][a-z]+(\/iStock|\/Getty|\/Moment|\/500px)?$') {
             $raw = $c
         }
     }
@@ -6077,7 +6077,7 @@ function Render-GalleryGrid {
         $details.Children.Add($date)
 
         # Wallhaven & Local: collapse into compact single line
-        # - e.g. "3840 × 2160 • JPEG • 5.2 MB"
+        # - e.g. "3840 Ã— 2160 â€¢ JPEG â€¢ 5.2 MB"
         if ($image.source -eq 'Wallhaven' -or $image.source -eq 'Local') {
             $infoParts = @()
             if ($image.resX -and $image.resY) { $infoParts += "$($image.resX) $([char]215) $($image.resY)" }
@@ -7822,6 +7822,7 @@ Write-TimingLog "SCRIPT: Window Ready, about to call Show() ($($script:startStop
 $window.Show()
 [System.Windows.Threading.Dispatcher]::Run()
 [Environment]::Exit(0)
+
 
 
 

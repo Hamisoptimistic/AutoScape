@@ -29,3 +29,11 @@ scratch/
 # Local cache & downloads
 Cache/
 Thumbs/
+
+# Build and Release Outputs
+dist/
+AutoScape.zip
+AutoScape.zip.sha256
+AutoScape-Setup.exe
+AutoScape-Setup.exe.sha256
+

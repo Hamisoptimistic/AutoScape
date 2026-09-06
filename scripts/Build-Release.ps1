@@ -158,6 +158,20 @@ if ($env:GITHUB_OUTPUT) {
 }
 Write-Host "hash=$hash"
 
+# Build Inno Setup Installer
+$installerScript = Join-Path $rootFolder 'installer\build_installer.ps1'
+if (Test-Path -LiteralPath $installerScript) {
+    Write-Step "Building Inno Setup Installer..."
+    & $installerScript -Version $appVersion
+    $builtInstaller = Join-Path $rootFolder 'dist\AutoScape-Setup.exe'
+    $builtSha = Join-Path $rootFolder 'dist\AutoScape-Setup.exe.sha256'
+    if (Test-Path -LiteralPath $builtInstaller) {
+        Copy-Item -LiteralPath $builtInstaller -Destination (Join-Path $rootFolder 'AutoScape-Setup.exe') -Force
+        Copy-Item -LiteralPath $builtSha -Destination (Join-Path $rootFolder 'AutoScape-Setup.exe.sha256') -Force
+        Write-Host "Prepared root AutoScape-Setup.exe and checksum for release"
+    }
+}
+
 Write-Step "Done"
 Write-Host "Created $zipPath"
 Write-Host "Created $zipShaPath"

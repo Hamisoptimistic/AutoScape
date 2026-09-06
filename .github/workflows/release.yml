@@ -46,19 +46,20 @@ jobs:
             Automatically built from commit `${{ github.sha }}` on branch `${{ github.ref_name }}`.
 
             #### 📦 Downloads
-            - **[AutoScape.zip](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape.zip)**
-            - **[AutoScape.zip.sha256](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape.zip.sha256)** (SHA-256 Checksum)
+            - **[AutoScape-Setup.exe](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape-Setup.exe)** (⭐ **Recommended Installer**)
+            - **[AutoScape-Setup.exe.sha256](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape-Setup.exe.sha256)** (Installer SHA-256)
+            - **[AutoScape.zip](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape.zip)** (Portable Archive)
+            - **[AutoScape.zip.sha256](https://github.com/${{ github.repository }}/releases/download/latest/AutoScape.zip.sha256)** (Portable SHA-256)
 
-            SHA256: ${{ steps.build_step.outputs.hash }}
-
-            #### ⚙️ Setup
-            1. Extract the zip anywhere (keep all files together).
-            2. Double-click `Setup.bat` (one-time only — creates your Desktop/Start Menu shortcut).
-            3. Launch AutoScape from the shortcut it creates.
+            #### ⚙️ Installation Options
+            - **Installer (Recommended)**: Download and run `AutoScape-Setup.exe`. Modern dark-mode setup wizard with customizable shortcut options and zero admin popups.
+            - **Portable**: Extract `AutoScape.zip` anywhere and run `Setup.bat`.
           draft: false
           prerelease: false
           make_latest: true
           files: |
+            AutoScape-Setup.exe
+            AutoScape-Setup.exe.sha256
             AutoScape.zip
             AutoScape.zip.sha256
         env:
@@ -75,18 +76,19 @@ jobs:
             Built from commit `${{ github.sha }}` on tag `${{ github.ref_name }}`.
 
             #### 📦 Downloads
-            - **[AutoScape.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AutoScape.zip)**
+            - **[AutoScape-Setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AutoScape-Setup.exe)** (⭐ **Recommended Installer**)
+            - **[AutoScape-Setup.exe.sha256](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AutoScape-Setup.exe.sha256)**
+            - **[AutoScape.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AutoScape.zip)** (Portable Archive)
             - **[AutoScape.zip.sha256](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AutoScape.zip.sha256)**
 
-            SHA256: ${{ steps.build_step.outputs.hash }}
-
-            #### ⚙️ Setup
-            1. Extract the zip anywhere (keep all files together).
-            2. Double-click `Setup.bat` (one-time only — creates your Desktop/Start Menu shortcut).
-            3. Launch AutoScape from the shortcut it creates.
+            #### ⚙️ Installation Options
+            - **Installer (Recommended)**: Download and run `AutoScape-Setup.exe`.
+            - **Portable**: Extract `AutoScape.zip` and run `Setup.bat`.
           draft: false
           prerelease: false
           files: |
+            AutoScape-Setup.exe
+            AutoScape-Setup.exe.sha256
             AutoScape.zip
             AutoScape.zip.sha256
         env:
