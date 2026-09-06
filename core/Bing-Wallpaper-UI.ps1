@@ -1621,6 +1621,15 @@ if ($AutoApply) {
             switch ($Source) {
                 'Bing' {
                     $images = Get-BingImages -Region $Region
+                    if ($images -and $images.Count -gt 0) {
+                        $topId = [string]$images[0].urlbase
+                        $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
+                        if ($lastAppliedId -and $topId -eq $lastAppliedId -and $scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20) {
+                            Write-AutoLog "Bing rollover pending: Top image ($topId) matches last applied wallpaper. Waiting for next hourly check."
+                            [Environment]::Exit(0)
+                        }
+                        $script:appliedWallpaperId = $topId
+                    }
                 }
                 'Spotlight' {
                     $images = Get-SpotlightImages -Count 1
@@ -1661,13 +1670,22 @@ if ($AutoApply) {
                 try {
                     $images = Get-BingImages -Region $Region
                     if (-not $images -or $images.Count -eq 0) { throw "No wallpaper was returned by Bing." }
+
+                    $topId = [string]$images[0].urlbase
+                    $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
+                    if ($lastAppliedId -and $topId -eq $lastAppliedId -and $scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20) {
+                        Write-AutoLog "Bing rollover pending: Top image ($topId) matches last applied wallpaper. Waiting for next hourly check."
+                        [Environment]::Exit(0)
+                    }
+
                     Set-BingImage -Image $images[0] -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
+                    $script:appliedWallpaperId = $topId
                     Write-AutoLog "Attempt ${attempt}: Successfully applied Bing to Both."
                     $applySuccess = $true
                 }
                 catch {
                     $errMsg = $_.Exception.Message
-                    Write-AutoLog "Attempt $attempt failed (Bing Both): $errMsg"
+                    Write-AutoLog "Attempt ${attempt} failed (Bing Both): $errMsg"
                     $errors += "AutoApply Both: $errMsg"
                 }
             }
@@ -1726,12 +1744,13 @@ if ($AutoApply) {
                 WallhavenApiKey       = if ($existing -and $existing.WallhavenApiKey) { $existing.WallhavenApiKey } else { '' }
                 PexelsApiKey          = if ($existing -and $existing.PexelsApiKey) { $existing.PexelsApiKey } else { '' }
                 LocalFolderPath       = if ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
-                LastAutoAppliedDate   = if ($scheduleMode -eq 'Test1Minute') { '' } else { $todayStamp }
-                LastAutoDesktopSource = $desktopSource
-                LastAutoLockSource    = $lockSource
+                LastAutoAppliedDate        = if ($scheduleMode -eq 'Test1Minute') { '' } else { $todayStamp }
+                LastAutoAppliedWallpaperId = if ($script:appliedWallpaperId) { [string]$script:appliedWallpaperId } elseif ($existing -and $existing.LastAutoAppliedWallpaperId) { [string]$existing.LastAutoAppliedWallpaperId } else { '' }
+                LastAutoDesktopSource      = $desktopSource
+                LastAutoLockSource         = $lockSource
             }
             $settingsObj | ConvertTo-Json -Depth 2 | Set-Content -LiteralPath $script:settingsPath
-            Write-AutoLog "Settings saved successfully (LastAutoAppliedDate updated)."
+            Write-AutoLog "Settings saved successfully (LastAutoAppliedDate and LastAutoAppliedWallpaperId updated)."
         }
         catch {
             Write-AutoLog "Warning: Failed to save settings. $($_.Exception.Message)"
@@ -3510,9 +3529,10 @@ function Save-Settings {
             WallhavenApiKey       = (Get-SourceApiKey 'Wallhaven')
             PexelsApiKey          = (Get-SourceApiKey 'Pexels')
             LocalFolderPath       = if ($script:localFolderPath) { $script:localFolderPath } elseif ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
-            LastAutoAppliedDate   = if ($existing -and $existing.LastAutoAppliedDate) { [string]$existing.LastAutoAppliedDate } else { '' }
-            LastAutoDesktopSource = if ($existing -and $existing.LastAutoDesktopSource) { [string]$existing.LastAutoDesktopSource } else { '' }
-            LastAutoLockSource    = if ($existing -and $existing.LastAutoLockSource) { [string]$existing.LastAutoLockSource } else { '' }
+            LastAutoAppliedDate        = if ($existing -and $existing.LastAutoAppliedDate) { [string]$existing.LastAutoAppliedDate } else { '' }
+            LastAutoAppliedWallpaperId = if ($existing -and $existing.LastAutoAppliedWallpaperId) { [string]$existing.LastAutoAppliedWallpaperId } else { '' }
+            LastAutoDesktopSource      = if ($existing -and $existing.LastAutoDesktopSource) { [string]$existing.LastAutoDesktopSource } else { '' }
+            LastAutoLockSource         = if ($existing -and $existing.LastAutoLockSource) { [string]$existing.LastAutoLockSource } else { '' }
         }
         $dir = Split-Path -Parent $script:settingsPath
         if (-not (Test-Path -LiteralPath $dir)) {
