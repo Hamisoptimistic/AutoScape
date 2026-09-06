@@ -75,25 +75,17 @@ function Write-TimingLog {
 }
 Write-TimingLog "SCRIPT: first line executing (in-process launch)"
 
-$script:interactionLogPath = Join-Path $script:logsDir 'autoscape-interactions.log'
-$script:archiveLogPath = $script:interactionLogPath
+$script:interactionLogPath = $null
+$script:archiveLogPath = $null
 
 function Write-InteractionLog {
     param([string]$Message)
-    try {
-        if (-not (Test-Path -LiteralPath $script:logsDir)) {
-            New-Item -ItemType Directory -Path $script:logsDir -Force | Out-Null
-        }
-        $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff")
-        $memMB = [Math]::Round(([System.Diagnostics.Process]::GetCurrentProcess().WorkingSet64 / 1MB), 1)
-        Add-Content -Path $script:interactionLogPath -Value "[$ts] [MEM: ${memMB}MB] $Message" -ErrorAction SilentlyContinue
-    }
-    catch {}
+    # Disabled for maximum UI responsiveness and zero disk I/O
 }
 
 function Write-ArchiveLog {
     param([string]$Message)
-    Write-InteractionLog $Message
+    # Disabled for maximum UI responsiveness and zero disk I/O
 }
 
 function Invoke-MemoryFlush {
@@ -106,7 +98,7 @@ function Invoke-MemoryFlush {
     if ($Async) {
         if ('BingWallpaperNative' -as [type]) {
             try {
-                [BingWallpaperNative]::FlushMemoryBackground($script:interactionLogPath, $Reason)
+                [BingWallpaperNative]::FlushMemoryBackground($null, $Reason)
                 return
             }
             catch {}
@@ -3139,6 +3131,13 @@ public static class AutoScapeChromeHelper
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+
+    private static IntPtr _hBigIcon = IntPtr.Zero;
+    private static IntPtr _hSmallIcon = IntPtr.Zero;
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
     {
@@ -3244,21 +3243,41 @@ public static class AutoScapeChromeHelper
     public static void ApplyAppIcon(IntPtr hwnd, string iconPath)
     {
         try {
+            CleanupIcons();
+
             if (!string.IsNullOrEmpty(iconPath) && System.IO.File.Exists(iconPath))
             {
                 // 1. Big icon (32x32 / 48x48) for Taskbar button and Alt+Tab
-                IntPtr hBigIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
-                if (hBigIcon != IntPtr.Zero)
+                _hBigIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+                if (_hBigIcon != IntPtr.Zero)
                 {
-                    SendMessage(hwnd, WM_SETICON, new IntPtr(1), hBigIcon);
+                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(1), _hBigIcon);
+                    if (oldIcon != IntPtr.Zero && oldIcon != _hBigIcon) DestroyIcon(oldIcon);
                 }
 
                 // 2. Small icon (16x16) for Taskbar hover preview header and Alt+Tab corner badge
-                IntPtr hSmallIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-                if (hSmallIcon != IntPtr.Zero)
+                _hSmallIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+                if (_hSmallIcon != IntPtr.Zero)
                 {
-                    SendMessage(hwnd, WM_SETICON, new IntPtr(0), hSmallIcon);
+                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(0), _hSmallIcon);
+                    if (oldIcon != IntPtr.Zero && oldIcon != _hSmallIcon) DestroyIcon(oldIcon);
                 }
+            }
+        } catch {}
+    }
+
+    public static void CleanupIcons()
+    {
+        try {
+            if (_hBigIcon != IntPtr.Zero)
+            {
+                DestroyIcon(_hBigIcon);
+                _hBigIcon = IntPtr.Zero;
+            }
+            if (_hSmallIcon != IntPtr.Zero)
+            {
+                DestroyIcon(_hSmallIcon);
+                _hSmallIcon = IntPtr.Zero;
             }
         } catch {}
     }
@@ -7768,6 +7787,7 @@ $window.Add_Closed({
             if ($script:activeModalControl) { Close-InWindowModal -Immediate $true }
             if ($script:activeDialogModalControl) { Close-DialogModal -Immediate $true }
             $script:activeGuideDialog = $null
+            try { [AutoScapeChromeHelper]::CleanupIcons() } catch {}
             [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
         }
         catch {}
