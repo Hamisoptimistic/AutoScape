@@ -1,7 +1,7 @@
 # =====================================================================
 # AutoScape 2.0 Web Installer & Bootstrapper (GitHub Pages Edition)
 # Run in PowerShell:
-#   irm https://hamisoptimistic.github.io/Bing-Wallpaper/install.ps1 | iex
+#   irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -13,7 +13,7 @@ Write-Host "======================================================" -ForegroundC
 Write-Host ""
 
 $repoOwner = "Hamisoptimistic"
-$repoName  = "Bing-Wallpaper"
+$repoName  = "AutoScape"
 $branch    = "main"
 
 $zipUrl    = "https://github.com/$repoOwner/$repoName/archive/refs/heads/$branch.zip"

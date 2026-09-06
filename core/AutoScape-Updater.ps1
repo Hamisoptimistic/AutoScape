@@ -3,7 +3,7 @@
 # Auto-Updater Subsystem: GitHub Release Checks, SHA-256 & Installs
 # =====================================================================
 
-$script:updateRepository = 'Hamisoptimistic/Bing-Wallpaper'
+$script:updateRepository = 'Hamisoptimistic/AutoScape'
 $script:updatePublisherThumbprint = ''
 $script:updateContext = $null
 $script:updateDlContext = $null

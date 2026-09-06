@@ -445,7 +445,7 @@ function Show-UserGuideDialog {
         Enable-StrictToolTipDelay $guideGithubRepoBtn
         $guideGithubRepoBtn.Add_Click({
                 try {
-                    Start-Process "https://github.com/Hamisoptimistic/Bing-Wallpaper" | Out-Null
+                    Start-Process "https://github.com/Hamisoptimistic/AutoScape" | Out-Null
                 }
                 catch {}
             })

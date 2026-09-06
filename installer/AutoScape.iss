@@ -9,7 +9,7 @@
 
 #define MyAppName "AutoScape"
 #define MyAppPublisher "AutoScape Team"
-#define MyAppURL "https://github.com/Hamisoptimistic/Bing-Wallpaper"
+#define MyAppURL "https://github.com/Hamisoptimistic/AutoScape"
 #define MyAppExeName "Bing-Wallpaper-UI.ps1"
 
 [Setup]

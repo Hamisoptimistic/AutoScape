@@ -8,8 +8,8 @@
 <p><b>Daily 4K Bing photography delivered to your Desktop & Lock Screen with near-zero resource consumption.</b></p>
 
 <p align="center">
-  <a href="https://github.com/Hamisoptimistic/Bing-Wallpaper/raw/main/AutoScape.exe?download=1">
-    <img src="https://img.shields.io/badge/Download%20for%20Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download AutoScape" />
+  <a href="https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe">
+    <img src="https://img.shields.io/badge/Download%20Installer-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download AutoScape Installer" />
   </a>
 </p>
 
@@ -129,13 +129,13 @@ Most wallpaper utilities wrap web frameworks like Electron or Chromium, permanen
 Paste this into Windows PowerShell to install and launch AutoScape instantly:
 
 ```powershell
-irm https://hamisoptimistic.github.io/Bing-Wallpaper/install.ps1 | iex
+irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex
 ```
 
 ---
 
 ### Manual Download
-Download **[`AutoScape.exe`](https://github.com/Hamisoptimistic/Bing-Wallpaper/raw/main/AutoScape.exe?download=1)** and double-click to run. No setup wizard or administrative permissions required.
+Download **[`AutoScape-Setup.exe`](https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe)** and double-click to install. Zero admin permissions required.
 
 ### 2. Automatic Updates
 Inside the application, turn the **Auto** toggle to **ON**:
