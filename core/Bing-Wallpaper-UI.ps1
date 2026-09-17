@@ -163,157 +163,9 @@ Write-TimingLog "SCRIPT: PresentationFramework/Core/WindowsBase loaded ($($scrip
 # refresh rate - and it unhooks itself the instant it comes to rest, per
 # Microsoft's own guidance not to leave CompositionTarget.Rendering attached
 # when nothing is moving.
-$script:smoothScrollCsSource = @'
-using System;
-using System.Diagnostics;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
+# AutoScapeSmoothScroll C# source is defined directly inside nativeCsSourceExtra and compiled
+# asynchronously in Start-DeferredNativeExtraCompile after the window is rendered.
 
-public static class AutoScapeSmoothScroll
-{
-    private static ScrollViewer _sv;
-    private static double _offset;      // our own precise (sub-pixel) offset
-    private static double _velocity;    // pixels / second, +down / -up
-    private static bool _hooked;
-    private static readonly Stopwatch _clock = new Stopwatch();
-    private static long _lastTicks;
-
-    // Tuned to match the Windows 11 Settings feel:
-    private const double WheelImpulse = 500.0;     // px/sec added per wheel notch
-    private const double MaxVelocity = 9000.0;      // px/sec safety clamp
-    private const double FrictionPerSec = 5.0;      // exponential decay rate
-    private const double StopThreshold = 3.0;       // px/sec - below this we snap & stop
-    private const double MaxFrameDelta = 1.0 / 20.0; // guard vs. huge dt after a stall
-
-    public static void Attach(ScrollViewer sv)
-    {
-        if (sv == null) return;
-        _sv = sv;
-        _offset = sv.ContentVerticalOffset;
-        _velocity = 0;
-
-        sv.PreviewMouseWheel += (s, e) =>
-        {
-            double max = sv.ScrollableHeight;
-            if (max <= 0) return;
-
-            e.Handled = true;
-
-            // Resync from the live offset if we weren't already gliding (covers
-            // programmatic scrolls, scrollbar drags, etc. that happened meanwhile).
-            if (Math.Abs(_velocity) < StopThreshold)
-            {
-                _offset = sv.ContentVerticalOffset;
-            }
-
-            double direction = e.Delta > 0 ? -1.0 : 1.0;
-            double notches = Math.Abs(e.Delta) / 120.0;
-            if (notches <= 0) notches = 1.0;
-
-            _velocity += direction * WheelImpulse * notches;
-            if (_velocity > MaxVelocity) _velocity = MaxVelocity;
-            if (_velocity < -MaxVelocity) _velocity = -MaxVelocity;
-
-            StartRendering();
-        };
-
-        // Any manual interaction (click, drag, keyboard) should kill the glide
-        // immediately rather than fight the user for control.
-        sv.PreviewMouseDown += (s, e) => StopGliding();
-        sv.PreviewKeyDown += (s, e) => StopGliding();
-        sv.PreviewStylusDown += (s, e) => StopGliding();
-
-        sv.ScrollChanged += (s, e) =>
-        {
-            // If something else moved the offset (scrollbar thumb drag, resize,
-            // ScrollToTop, etc.) while we're not actively gliding, stay in sync.
-            if (!_hooked && Math.Abs(e.VerticalChange) > 0.0001)
-            {
-                _offset = sv.ContentVerticalOffset;
-            }
-        };
-    }
-
-    private static void StopGliding()
-    {
-        _velocity = 0;
-        if (_sv != null) _offset = _sv.ContentVerticalOffset;
-        StopRendering();
-    }
-
-    private static void StartRendering()
-    {
-        if (_hooked) return;
-        _hooked = true;
-        if (!_clock.IsRunning) _clock.Start();
-        _lastTicks = _clock.ElapsedTicks;
-        CompositionTarget.Rendering += OnRendering;
-    }
-
-    private static void StopRendering()
-    {
-        if (!_hooked) return;
-        _hooked = false;
-        CompositionTarget.Rendering -= OnRendering;
-    }
-
-    // Runs once per composition frame (tracks whatever cadence the render
-    // thread actually lands at) for as long as there's momentum left, then
-    // unhooks itself so it never spins while the list is at rest.
-    private static void OnRendering(object sender, EventArgs e)
-    {
-        if (_sv == null) { StopRendering(); return; }
-
-        long now = _clock.ElapsedTicks;
-        double dt = (now - _lastTicks) / (double)Stopwatch.Frequency;
-        _lastTicks = now;
-        if (dt <= 0 || dt > MaxFrameDelta) dt = 1.0 / 60.0;
-
-        double max = _sv.ScrollableHeight;
-
-        _offset += _velocity * dt;
-
-        if (_offset < 0.0)
-        {
-            _offset = 0.0;
-            _velocity = 0.0;
-        }
-        else if (_offset > max)
-        {
-            _offset = max;
-            _velocity = 0.0;
-        }
-
-        // Frame-rate-independent exponential friction (same decay curve at any fps).
-        _velocity *= Math.Exp(-FrictionPerSec * dt);
-
-        _sv.ScrollToVerticalOffset(_offset);
-
-        if (Math.Abs(_velocity) < StopThreshold)
-        {
-            _velocity = 0.0;
-            StopRendering();
-        }
-    }
-
-    public static void Reset()
-    {
-        _velocity = 0.0;
-        _offset = 0.0;
-        StopRendering();
-        if (_sv != null) _sv.ScrollToVerticalOffset(0.0);
-    }
-}
-'@
-
-try {
-    Add-Type -TypeDefinition $script:smoothScrollCsSource -ReferencedAssemblies @('PresentationCore', 'PresentationFramework', 'WindowsBase', 'System.Xaml') -Language CSharp -ErrorAction Stop
-}
-catch {
-    Write-TimingLog "WARN: AutoScapeSmoothScroll compile: $($_.Exception.Message)"
-}
 
 function Show-AppErrorDialog {
     param(
@@ -345,29 +197,28 @@ function Write-NativeLoadLog {
     catch {}
 }
 
-# --- Auto-Updater Subsystem --------------------------------------------
-$updaterModulePath = Join-Path $PSScriptRoot 'AutoScape-Updater.ps1'
-if (-not (Test-Path -LiteralPath $updaterModulePath)) {
-    $updaterModulePath = Join-Path $PSScriptRoot 'core\AutoScape-Updater.ps1'
-}
-if (Test-Path -LiteralPath $updaterModulePath) {
-    . $updaterModulePath
+# --- Auto-Updater Subsystem (Lazy-Loaded) -------------------------------
+function Ensure-AutoUpdater {
+    if (-not (Get-Command 'Start-VerifiedUpdate' -ErrorAction SilentlyContinue)) {
+        $updaterModulePath = Join-Path $PSScriptRoot 'AutoScape-Updater.ps1'
+        if (-not (Test-Path -LiteralPath $updaterModulePath)) {
+            $updaterModulePath = Join-Path $PSScriptRoot 'core\AutoScape-Updater.ps1'
+        }
+        if (Test-Path -LiteralPath $updaterModulePath) {
+            . $updaterModulePath
+        }
+    }
 }
 
 
 if (-not ('BingWallpaperNative' -as [type])) {
     # CORE: only what's needed synchronously before/at window creation -
-    # taskbar app-id, Mica/dark title bar, and SystemParametersInfo (desktop
-    # wallpaper apply). SystemParametersInfo has to live here rather than in
-    # the deferred block below because the headless -AutoApply/Spotlight
-    # path (see "if ($AutoApply)" above) calls it directly and exits before
-    # any WPF Dispatcher exists to pump a deferred/background compile.
-    # None of this needs WPF/Http assemblies - it's plain P/Invoke - so the
-    # Add-Type call below intentionally omits -ReferencedAssemblies.
+    # taskbar app-id, Mica/dark title bar, chrome helper, and SystemParametersInfo.
     $script:nativeCsSourceCore = @'
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 
 public static class AppUserModel
 {
@@ -452,10 +303,179 @@ public static class BingWallpaperNative
         });
     }
 }
+
+public static class AutoScapeChromeHelper
+{
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+
+    private static IntPtr _hBigIcon = IntPtr.Zero;
+    private static IntPtr _hSmallIcon = IntPtr.Zero;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int x;
+        public int y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct RECT
+    {
+        public int left;
+        public int top;
+        public int right;
+        public int bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    public const uint WM_SETICON = 0x0080;
+    public const uint IMAGE_ICON = 1;
+    public const uint LR_LOADFROMFILE = 0x0010;
+    public const uint LR_DEFAULTSIZE = 0x0040;
+
+    private const int GWL_STYLE = -16;
+    private const int WS_CAPTION = 0x00C00000;
+    private const int WS_MINIMIZEBOX = 0x00020000;
+    private const int WS_MAXIMIZEBOX = 0x00010000;
+    private const int WS_SYSMENU = 0x00080000;
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+    public static void EnableWindowAnimations(IntPtr hwnd)
+    {
+        try {
+            int style = GetWindowLong(hwnd, GWL_STYLE);
+            SetWindowLong(hwnd, GWL_STYLE, style | WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+        } catch {}
+    }
+
+    public static void Attach(IntPtr hwnd)
+    {
+        try {
+            EnableWindowAnimations(hwnd);
+            HwndSource source = HwndSource.FromHwnd(hwnd);
+            if (source != null)
+            {
+                source.AddHook(new HwndSourceHook(HookProc));
+            }
+        } catch {}
+    }
+
+    public static IntPtr HookProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_GETMINMAXINFO)
+        {
+            try {
+                IntPtr hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                if (hMonitor != IntPtr.Zero)
+                {
+                    MONITORINFO mi = new MONITORINFO();
+                    mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                    if (GetMonitorInfo(hMonitor, ref mi))
+                    {
+                        MINMAXINFO mmi = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
+                        
+                        mmi.ptMaxPosition.x = Math.Abs(mi.rcWork.left - mi.rcMonitor.left);
+                        mmi.ptMaxPosition.y = Math.Abs(mi.rcWork.top - mi.rcMonitor.top);
+                        mmi.ptMaxSize.x = Math.Abs(mi.rcWork.right - mi.rcWork.left);
+                        mmi.ptMaxSize.y = Math.Abs(mi.rcWork.bottom - mi.rcWork.top);
+                        mmi.ptMaxTrackSize.x = mmi.ptMaxSize.x;
+                        mmi.ptMaxTrackSize.y = mmi.ptMaxSize.y;
+
+                        Marshal.StructureToPtr(mmi, lParam, true);
+                        handled = true;
+                    }
+                }
+            } catch {}
+        }
+        return IntPtr.Zero;
+    }
+
+    public static void ApplyAppIcon(IntPtr hwnd, string iconPath)
+    {
+        try {
+            CleanupIcons();
+
+            if (!string.IsNullOrEmpty(iconPath) && System.IO.File.Exists(iconPath))
+            {
+                // 1. Big icon (32x32 / 48x48) for Taskbar button and Alt+Tab
+                _hBigIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+                if (_hBigIcon != IntPtr.Zero)
+                {
+                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(1), _hBigIcon);
+                    if (oldIcon != IntPtr.Zero && oldIcon != _hBigIcon) DestroyIcon(oldIcon);
+                }
+
+                // 2. Small icon (16x16) for Taskbar hover preview header and Alt+Tab corner badge
+                _hSmallIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+                if (_hSmallIcon != IntPtr.Zero)
+                {
+                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(0), _hSmallIcon);
+                    if (oldIcon != IntPtr.Zero && oldIcon != _hSmallIcon) DestroyIcon(oldIcon);
+                }
+            }
+        } catch {}
+    }
+
+    public static void CleanupIcons()
+    {
+        try {
+            if (_hBigIcon != IntPtr.Zero)
+            {
+                DestroyIcon(_hBigIcon);
+                _hBigIcon = IntPtr.Zero;
+            }
+            if (_hSmallIcon != IntPtr.Zero)
+            {
+                DestroyIcon(_hSmallIcon);
+                _hSmallIcon = IntPtr.Zero;
+            }
+        } catch {}
+    }
+}
 '@
 
     try {
-        Add-Type -TypeDefinition $script:nativeCsSourceCore -Language CSharp -ErrorAction Stop
+        Add-Type -TypeDefinition $script:nativeCsSourceCore -ReferencedAssemblies WindowsBase, PresentationCore, PresentationFramework -Language CSharp -ErrorAction Stop
         Write-NativeLoadLog "OK: compiled core native helpers in-memory (no DLL file written)"
     }
     catch {
@@ -476,12 +496,16 @@ public static class BingWallpaperNative
 $script:nativeCsSourceExtra = @'
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -969,6 +993,142 @@ namespace BingWallpaper
         }
     }
 }
+
+public static class AutoScapeSmoothScroll
+{
+    private static ScrollViewer _sv;
+    private static double _offset;      // our own precise (sub-pixel) offset
+    private static double _velocity;    // pixels / second, +down / -up
+    private static bool _hooked;
+    private static readonly Stopwatch _clock = new Stopwatch();
+    private static long _lastTicks;
+
+    // Tuned to match the Windows 11 Settings feel:
+    private const double WheelImpulse = 500.0;     // px/sec added per wheel notch
+    private const double MaxVelocity = 9000.0;      // px/sec safety clamp
+    private const double FrictionPerSec = 5.0;      // exponential decay rate
+    private const double StopThreshold = 3.0;       // px/sec - below this we snap & stop
+    private const double MaxFrameDelta = 1.0 / 20.0; // guard vs. huge dt after a stall
+
+    public static void Attach(ScrollViewer sv)
+    {
+        if (sv == null) return;
+        _sv = sv;
+        _offset = sv.ContentVerticalOffset;
+        _velocity = 0;
+
+        sv.PreviewMouseWheel += (s, e) =>
+        {
+            double max = sv.ScrollableHeight;
+            if (max <= 0) return;
+
+            e.Handled = true;
+
+            // Resync from the live offset if we weren't already gliding (covers
+            // programmatic scrolls, scrollbar drags, etc. that happened meanwhile).
+            if (Math.Abs(_velocity) < StopThreshold)
+            {
+                _offset = sv.ContentVerticalOffset;
+            }
+
+            double direction = e.Delta > 0 ? -1.0 : 1.0;
+            double notches = Math.Abs(e.Delta) / 120.0;
+            if (notches <= 0) notches = 1.0;
+
+            _velocity += direction * WheelImpulse * notches;
+            if (_velocity > MaxVelocity) _velocity = MaxVelocity;
+            if (_velocity < -MaxVelocity) _velocity = -MaxVelocity;
+
+            StartRendering();
+        };
+
+        // Any manual interaction (click, drag, keyboard) should kill the glide
+        // immediately rather than fight the user for control.
+        sv.PreviewMouseDown += (s, e) => StopGliding();
+        sv.PreviewKeyDown += (s, e) => StopGliding();
+        sv.PreviewStylusDown += (s, e) => StopGliding();
+
+        sv.ScrollChanged += (s, e) =>
+        {
+            // If something else moved the offset (scrollbar thumb drag, resize,
+            // ScrollToTop, etc.) while we're not actively gliding, stay in sync.
+            if (!_hooked && Math.Abs(e.VerticalChange) > 0.0001)
+            {
+                _offset = sv.ContentVerticalOffset;
+            }
+        };
+    }
+
+    private static void StopGliding()
+    {
+        _velocity = 0;
+        if (_sv != null) _offset = _sv.ContentVerticalOffset;
+        StopRendering();
+    }
+
+    private static void StartRendering()
+    {
+        if (_hooked) return;
+        _hooked = true;
+        if (!_clock.IsRunning) _clock.Start();
+        _lastTicks = _clock.ElapsedTicks;
+        CompositionTarget.Rendering += OnRendering;
+    }
+
+    private static void StopRendering()
+    {
+        if (!_hooked) return;
+        _hooked = false;
+        CompositionTarget.Rendering -= OnRendering;
+    }
+
+    // Runs once per composition frame (tracks whatever cadence the render
+    // thread actually lands at) for as long as there's momentum left, then
+    // unhooks itself so it never spins while the list is at rest.
+    private static void OnRendering(object sender, EventArgs e)
+    {
+        if (_sv == null) { StopRendering(); return; }
+
+        long now = _clock.ElapsedTicks;
+        double dt = (now - _lastTicks) / (double)Stopwatch.Frequency;
+        _lastTicks = now;
+        if (dt <= 0 || dt > MaxFrameDelta) dt = 1.0 / 60.0;
+
+        double max = _sv.ScrollableHeight;
+
+        _offset += _velocity * dt;
+
+        if (_offset < 0.0)
+        {
+            _offset = 0.0;
+            _velocity = 0.0;
+        }
+        else if (_offset > max)
+        {
+            _offset = max;
+            _velocity = 0.0;
+        }
+
+        // Frame-rate-independent exponential friction (same decay curve at any fps).
+        _velocity *= Math.Exp(-FrictionPerSec * dt);
+
+        _sv.ScrollToVerticalOffset(_offset);
+
+        if (Math.Abs(_velocity) < StopThreshold)
+        {
+            _velocity = 0.0;
+            StopRendering();
+        }
+    }
+
+    public static void Reset()
+    {
+        _velocity = 0.0;
+        _offset = 0.0;
+        StopRendering();
+        if (_sv != null) _sv.ScrollToVerticalOffset(0.0);
+    }
+}
 '@
 
 function Start-DeferredNativeExtraCompile {
@@ -983,10 +1143,10 @@ function Start-DeferredNativeExtraCompile {
 
     $ps = [powershell]::Create()
     [void]$ps.AddScript({
-            param([string]$Source)
+            param([string]$SourceExtra)
             try {
-                Add-Type -TypeDefinition $Source -ReferencedAssemblies @(
-                    'PresentationCore', 'WindowsBase', 'System.Xaml', 'System.Net.Http'
+                Add-Type -TypeDefinition $SourceExtra -ReferencedAssemblies @(
+                    'PresentationCore', 'PresentationFramework', 'WindowsBase', 'System.Xaml', 'System.Net.Http'
                 ) -Language CSharp -ErrorAction Stop
                 return @{ Success = $true; Error = $null }
             }
@@ -1032,6 +1192,10 @@ function Complete-NativeExtraCompile {
         $res = if ($resCollection -and $resCollection.Count -gt 0) { $resCollection[0] } else { $null }
         if ($res -and $res.Success -eq $true) {
             Write-NativeLoadLog "OK: compiled extra native helpers in-memory (deferred, no DLL file written)"
+            Write-TimingLog "SCRIPT: deferred extra native helpers + smooth scroll compiled ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
+            if ('AutoScapeSmoothScroll' -as [type] -and $GalleryScrollViewer) {
+                try { [AutoScapeSmoothScroll]::Attach($GalleryScrollViewer) } catch {}
+            }
         }
         else {
             $err = if ($res) { $res.Error } else { 'Unknown error' }
@@ -1585,14 +1749,26 @@ if ($AutoApply) {
         } catch {}
     }
 
+    function Get-BingCanonicalId([string]$id) {
+        if (-not $id) { return '' }
+        if ($id -match 'OHR\.([A-Za-z0-9]+)') { return $matches[1] }
+        return $id
+    }
+
     try {
         Write-AutoLog "--- AutoApply Invoked ---"
         $savedSettings = Load-Settings
         if ($savedSettings) {
-            if ($PSBoundParameters.ContainsKey('Region') -eq $false -and $savedSettings.Region -and $savedSettings.Region -ne 'auto') { $Region = $savedSettings.Region }
-            elseif ($Region -eq 'en-US') {
-                $detected = Get-DetectedRegionCode
-                if ($detected) { $Region = $detected }
+            # Decoupled AutoApply: background daily wallpaper always uses local region (or auto/global),
+            # never contaminated by whatever temporary region was casually browsed in the gallery.
+            if ($PSBoundParameters.ContainsKey('Region') -eq $false) {
+                if ($savedSettings.AutoApplyRegion -and $savedSettings.AutoApplyRegion -ne 'auto') {
+                    $Region = $savedSettings.AutoApplyRegion
+                }
+                else {
+                    $detected = Get-DetectedRegionCode
+                    if ($detected -and $detected -ne 'auto') { $Region = $detected } else { $Region = 'auto' }
+                }
             }
             if ($PSBoundParameters.ContainsKey('Resolution') -eq $false -and $savedSettings.Resolution) { $Resolution = $savedSettings.Resolution }
             if ($PSBoundParameters.ContainsKey('Style') -eq $false -and $savedSettings.Style) { $Style = $savedSettings.Style }
@@ -1624,8 +1800,14 @@ if ($AutoApply) {
                     if ($images -and $images.Count -gt 0) {
                         $topId = [string]$images[0].urlbase
                         $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
-                        if ($lastAppliedId -and $topId -eq $lastAppliedId -and $scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20) {
-                            Write-AutoLog "Bing rollover pending: Top image ($topId) matches last applied wallpaper. Waiting for next hourly check."
+                        
+                        $topCanonical = Get-BingCanonicalId $topId
+                        $lastCanonical = Get-BingCanonicalId $lastAppliedId
+                        $isSameImage = ($lastCanonical -and $topCanonical -and $topCanonical -eq $lastCanonical)
+                        $isImageFromYesterday = ($images[0].enddate -and $images[0].enddate -match '^\d{8}$' -and $images[0].enddate -lt $todayStamp)
+
+                        if ($scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20 -and ($isSameImage -or $isImageFromYesterday)) {
+                            Write-AutoLog "Bing rollover pending: Top image ($topId, date: $($images[0].enddate)) is from yesterday or matches current wallpaper ($topCanonical). Waiting for next hourly check."
                             [Environment]::Exit(0)
                         }
                         $script:appliedWallpaperId = $topId
@@ -1673,8 +1855,14 @@ if ($AutoApply) {
 
                     $topId = [string]$images[0].urlbase
                     $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
-                    if ($lastAppliedId -and $topId -eq $lastAppliedId -and $scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20) {
-                        Write-AutoLog "Bing rollover pending: Top image ($topId) matches last applied wallpaper. Waiting for next hourly check."
+                    
+                    $topCanonical = Get-BingCanonicalId $topId
+                    $lastCanonical = Get-BingCanonicalId $lastAppliedId
+                    $isSameImage = ($lastCanonical -and $topCanonical -and $topCanonical -eq $lastCanonical)
+                    $isImageFromYesterday = ($images[0].enddate -and $images[0].enddate -match '^\d{8}$' -and $images[0].enddate -lt $todayStamp)
+
+                    if ($scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20 -and ($isSameImage -or $isImageFromYesterday)) {
+                        Write-AutoLog "Bing rollover pending: Top image ($topId, date: $($images[0].enddate)) is from yesterday or matches current wallpaper ($topCanonical). Waiting for next hourly check."
                         [Environment]::Exit(0)
                     }
 
@@ -3002,20 +3190,14 @@ $xaml = @"
 $window = [Windows.Markup.XamlReader]::Parse($xaml)
 Write-TimingLog "SCRIPT: main window XAML parsed/instantiated ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
-# Create lightweight frozen micro-noise brush for Fluent Acrylic cards (~16 KB RAM, 0% CPU)
+# Create lightweight frozen micro-noise brush for Fluent Acrylic cards (<1ms decode, ~4 KB RAM, 0% CPU)
 $script:FluentNoiseBrush = $(
-    $noiseWidth = 64
-    $noiseHeight = 64
+    $noiseWidth = 32
+    $noiseHeight = 32
     $stride = $noiseWidth * 4
-    $pixelBytes = New-Object byte[] ($noiseWidth * $noiseHeight * 4)
-    $rand = New-Object System.Random(1337)
-    for ($i = 0; $i -lt $pixelBytes.Length; $i += 4) {
-        $a = [byte]($rand.Next(2, 6))
-        $pixelBytes[$i] = $a     # B
-        $pixelBytes[$i + 1] = $a # G
-        $pixelBytes[$i + 2] = $a # R
-        $pixelBytes[$i + 3] = $a # A (Pbgra32 premultiplied)
-    }
+    # Pre-computed high-entropy pseudo-random noise texture (seed 1337)
+    $noiseB64 = 'AgICAgICAgIDAwMDBQUFBQUFBQUFBQUFBQUFBQICAgIDAwMDAwMDAwMDAwMDAwMDBQUFBQICAgIFBQUFAgICAgUFBQUFBQUFBQUFBQICAgIDAwMDBQUFBQUFBQUCAgICBAQEBAMDAwMDAwMDAgICAgUFBQUFBQUFBQUFBQQEBAQFBQUFBAQEBAMDAwMEBAQEBAQEBAQEBAQDAwMDAgICAgUFBQUCAgICAgICAgQEBAQFBQUFAgICAgICAgIDAwMDBQUFBQUFBQUEBAQEAwMDAwMDAwMFBQUFBQUFBQMDAwMCAgICAgICAgICAgIDAwMDBAQEBAUFBQUDAwMDBAQEBAQEBAQEBAQEAwMDAwICAgIEBAQEAgICAgMDAwMDAwMDBAQEBAUFBQUCAgICAwMDAwUFBQUDAwMDAwMDAwQEBAQCAgICAgICAgMDAwMFBQUFAgICAgMDAwMDAwMDAgICAgQEBAQCAgICBAQEBAMDAwMDAwMDBQUFBQQEBAQCAgICBQUFBQQEBAQCAgICAgICAgUFBQUFBQUFBQUFBQQEBAQDAwMDAwMDAwQEBAQEBAQEBQUFBQQEBAQEBAQEBQUFBQUFBQUEBAQEAgICAgMDAwMEBAQEAwMDAwMDAwMCAgICAwMDAwMDAwMEBAQEAwMDAwQEBAQCAgICBQUFBQQEBAQCAgICAgICAgMDAwMCAgICAwMDAwICAgIEBAQEAwMDAwICAgIEBAQEAwMDAwQEBAQFBQUFBQUFBQMDAwMCAgICBAQEBAUFBQUDAwMDBAQEBAUFBQUCAgICBAQEBAMDAwMCAgICAgICAgUFBQUEBAQEAwMDAwMDAwMCAgICAwMDAwMDAwMFBQUFAwMDAwQEBAQCAgICAwMDAwMDAwMFBQUFAgICAgUFBQUDAwMDBQUFBQUFBQUEBAQEAgICAgQEBAQFBQUFBAQEBAUFBQUFBQUFBAQEBAMDAwMFBQUFAgICAgMDAwMCAgICAgICAgMDAwMDAwMDAgICAgUFBQUFBQUFBAQEBAICAgIDAwMDBQUFBQMDAwMEBAQEBQUFBQMDAwMDAwMDBAQEBAQEBAQFBQUFBQUFBQQEBAQDAwMDAwMDAwUFBQUDAwMDBAQEBAQEBAQEBAQEAgICAgQEBAQCAgICAgICAgMDAwMDAwMDAgICAgICAgICAgICAwMDAwUFBQUFBQUFBAQEBAICAgIFBQUFAwMDAwMDAwMCAgICAwMDAwUFBQUEBAQEBAQEBAICAgIEBAQEBQUFBQICAgIEBAQEBAQEBAUFBQUEBAQEAgICAgMDAwMDAwMDAgICAgQEBAQEBAQEAgICAgQEBAQCAgICAwMDAwUFBQUCAgICAgICAgICAgIEBAQEAgICAgMDAwMEBAQEBAQEBAUFBQUDAwMDAgICAgICAgIFBQUFAgICAgQEBAQDAwMDAwMDAwICAgICAgICBAQEBAMDAwMDAwMDBAQEBAMDAwMDAwMDBAQEBAMDAwMEBAQEAgICAgMDAwMEBAQEBQUFBQICAgIFBQUFAwMDAwMDAwMFBQUFBQUFBQUFBQUFBQUFAgICAgICAgIFBQUFAgICAgUFBQUDAwMDAwMDAwICAgIFBQUFAgICAgUFBQUEBAQEAgICAgUFBQUEBAQEBAQEBAQEBAQFBQUFAwMDAwMDAwMFBQUFAgICAgMDAwMEBAQEBAQEBAICAgIFBQUFAgICAgQEBAQCAgICAwMDAwMDAwMCAgICAgICAgMDAwMCAgICBAQEBAMDAwMEBAQEAgICAgMDAwMDAwMDBAQEBAUFBQUEBAQEAgICAgUFBQUDAwMDAwMDAwUFBQUFBQUFAgICAgQEBAQDAwMDAgICAgICAgIEBAQEAgICAgQEBAQEBAQEAwMDAwMDAwMDAwMDBAQEBAQEBAQDAwMDAwMDAwICAgIDAwMDAwMDAwICAgICAgICAwMDAwICAgICAgICBAQEBAMDAwMDAwMDAgICAgQEBAQDAwMDBAQEBAQEBAQFBQUFAgICAgMDAwMFBQUFBAQEBAUFBQUDAwMDAwMDAwMDAwMFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUDAwMDAgICAgQEBAQFBQUFAgICAgUFBQUEBAQEBQUFBQUFBQUEBAQEAwMDAwQEBAQEBAQEAwMDAwICAgIFBQUFAwMDAwUFBQUEBAQEBAQEBAQEBAQDAwMDAwMDAwQEBAQCAgICBQUFBQUFBQUFBQUFAgICAgMDAwMDAwMDAgICAgQEBAQDAwMDAgICAgUFBQUFBQUFAwMDAwQEBAQEBAQEAgICAgMDAwMDAwMDAgICAgMDAwMDAwMDBAQEBAICAgIDAwMDBQUFBQMDAwMCAgICAwMDAwMDAwMDAwMDBQUFBQUFBQUFBQUFBQUFBQICAgICAgICBQUFBQQEBAQDAwMDAgICAgICAgIFBQUFAwMDAwICAgICAgICBQUFBQUFBQUCAgICBQUFBQMDAwMCAgICAgICAgMDAwMDAwMDBAQEBAMDAwMEBAQEAwMDAwMDAwMCAgICAwMDAwUFBQUDAwMDBQUFBQMDAwMCAgICAgICAgQEBAQDAwMDBAQEBAMDAwMEBAQEBQUFBQUFBQUCAgICAwMDAwMDAwMFBQUFAwMDAwUFBQUDAwMDBQUFBQQEBAQFBQUFAwMDAwQEBAQDAwMDBAQEBAICAgIEBAQEAwMDAwMDAwMDAwMDAwMDAwUFBQUDAwMDBAQEBAMDAwMFBQUFBQUFBQUFBQUDAwMDBQUFBQICAgICAgICAwMDAwMDAwMDAwMDAgICAgICAgICAgICBQUFBQICAgIDAwMDBAQEBAQEBAQDAwMDAwMDAwQEBAQEBAQEBQUFBQQEBAQFBQUFAwMDAwQEBAQCAgICBAQEBAICAgIEBAQEBAQEBAMDAwMEBAQEBQUFBQICAgIFBQUFAwMDAwQEBAQEBAQEBAQEBAICAgIDAwMDBQUFBQICAgICAgICBQUFBQICAgIFBQUFAgICAgMDAwMFBQUFAgICAgQEBAQFBQUFBQUFBQUFBQUEBAQEBQUFBQUFBQUCAgICBQUFBQUFBQUCAgICAgICAgICAgIEBAQEBAQEBAICAgICAgICBQUFBQICAgICAgICBQUFBQQEBAQDAwMDAgICAgUFBQUDAwMDBAQEBAMDAwMEBAQEAwMDAwQEBAQEBAQEBQUFBQMDAwMFBQUFBQUFBQUFBQUCAgICAwMDAwMDAwMFBQUFAwMDAwQEBAQDAwMDAwMDAwUFBQUCAgICAwMDAwMDAwMFBQUFBAQEBAICAgIDAwMDBQUFBQICAgIFBQUFAwMDAwUFBQUFBQUFAgICAgMDAwMDAwMDBAQEBAQEBAQDAwMDAwMDAwICAgIEBAQEBQUFBQUFBQUDAwMDAgICAgMDAwMEBAQEAgICAgMDAwMCAgICAgICAgQEBAQFBQUFAwMDAwICAgICAgICBAQEBAQEBAQDAwMDAwMDAwUFBQUDAwMDAgICAgMDAwMCAgICAwMDAwMDAwMCAgICAwMDAwQEBAQFBQUFAgICAgICAgIFBQUFBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQFBQUFBAQEBAMDAwMCAgICAgICAgQEBAQCAgICAwMDAwICAgICAgICBQUFBQICAgICAgICAwMDAwQEBAQDAwMDAwMDAwUFBQUCAgICAwMDAwUFBQUEBAQEAgICAgUFBQUEBAQEAgICAgUFBQUEBAQEAwMDAwUFBQUFBQUFBAQEBAQEBAQDAwMDAwMDAwMDAwMCAgICBQUFBQICAgIEBAQEAgICAgUFBQUEBAQEBQUFBQICAgIFBQUFBAQEBA=='
+    $pixelBytes = [System.Convert]::FromBase64String($noiseB64)
     $noiseSource = [System.Windows.Media.Imaging.BitmapSource]::Create(
         $noiseWidth, $noiseHeight, 96.0, 96.0,
         [System.Windows.Media.PixelFormats]::Pbgra32,
@@ -3030,6 +3212,7 @@ $script:FluentNoiseBrush = $(
     $noiseBrush
 )
 $window.Resources.Add('FluentNoiseBrush', $script:FluentNoiseBrush)
+Write-TimingLog "SCRIPT: FluentNoiseBrush ready ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
 if (-not [System.Windows.Application]::Current) {
     $script:wpfApp = New-Object System.Windows.Application
@@ -3156,185 +3339,7 @@ function Set-AutoScapeIcon {
 
 $script:taskbarIconPath = Set-AutoScapeIcon -TargetWindow $window
 
-if (-not ('AutoScapeChromeHelper' -as [type])) {
-    try {
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
-
-public static class AutoScapeChromeHelper
-{
-    private const int WM_GETMINMAXINFO = 0x0024;
-    private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool DestroyIcon(IntPtr hIcon);
-
-    private static IntPtr _hBigIcon = IntPtr.Zero;
-    private static IntPtr _hSmallIcon = IntPtr.Zero;
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct POINT
-    {
-        public int x;
-        public int y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct MINMAXINFO
-    {
-        public POINT ptReserved;
-        public POINT ptMaxSize;
-        public POINT ptMaxPosition;
-        public POINT ptMinTrackSize;
-        public POINT ptMaxTrackSize;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    public struct RECT
-    {
-        public int left;
-        public int top;
-        public int right;
-        public int bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    public struct MONITORINFO
-    {
-        public int cbSize;
-        public RECT rcMonitor;
-        public RECT rcWork;
-        public uint dwFlags;
-    }
-
-    public const uint WM_SETICON = 0x0080;
-    public const uint IMAGE_ICON = 1;
-    public const uint LR_LOADFROMFILE = 0x0010;
-    public const uint LR_DEFAULTSIZE = 0x0040;
-
-    private const int GWL_STYLE = -16;
-    private const int WS_CAPTION = 0x00C00000;
-    private const int WS_MINIMIZEBOX = 0x00020000;
-    private const int WS_MAXIMIZEBOX = 0x00010000;
-    private const int WS_SYSMENU = 0x00080000;
-
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hwnd, int index);
-
-    [DllImport("user32.dll")]
-    private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
-
-    public static void EnableWindowAnimations(IntPtr hwnd)
-    {
-        try {
-            int style = GetWindowLong(hwnd, GWL_STYLE);
-            SetWindowLong(hwnd, GWL_STYLE, style | WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
-        } catch {}
-    }
-
-    public static void Attach(IntPtr hwnd)
-    {
-        try {
-            EnableWindowAnimations(hwnd);
-            HwndSource source = HwndSource.FromHwnd(hwnd);
-            if (source != null)
-            {
-                source.AddHook(new HwndSourceHook(HookProc));
-            }
-        } catch {}
-    }
-
-    public static IntPtr HookProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == WM_GETMINMAXINFO)
-        {
-            try {
-                IntPtr hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-                if (hMonitor != IntPtr.Zero)
-                {
-                    MONITORINFO mi = new MONITORINFO();
-                    mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-                    if (GetMonitorInfo(hMonitor, ref mi))
-                    {
-                        MINMAXINFO mmi = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
-                        
-                        mmi.ptMaxPosition.x = Math.Abs(mi.rcWork.left - mi.rcMonitor.left);
-                        mmi.ptMaxPosition.y = Math.Abs(mi.rcWork.top - mi.rcMonitor.top);
-                        mmi.ptMaxSize.x = Math.Abs(mi.rcWork.right - mi.rcWork.left);
-                        mmi.ptMaxSize.y = Math.Abs(mi.rcWork.bottom - mi.rcWork.top);
-                        mmi.ptMaxTrackSize.x = mmi.ptMaxSize.x;
-                        mmi.ptMaxTrackSize.y = mmi.ptMaxSize.y;
-
-                        Marshal.StructureToPtr(mmi, lParam, true);
-                        handled = true;
-                    }
-                }
-            } catch {}
-        }
-        return IntPtr.Zero;
-    }
-
-    public static void ApplyAppIcon(IntPtr hwnd, string iconPath)
-    {
-        try {
-            CleanupIcons();
-
-            if (!string.IsNullOrEmpty(iconPath) && System.IO.File.Exists(iconPath))
-            {
-                // 1. Big icon (32x32 / 48x48) for Taskbar button and Alt+Tab
-                _hBigIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
-                if (_hBigIcon != IntPtr.Zero)
-                {
-                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(1), _hBigIcon);
-                    if (oldIcon != IntPtr.Zero && oldIcon != _hBigIcon) DestroyIcon(oldIcon);
-                }
-
-                // 2. Small icon (16x16) for Taskbar hover preview header and Alt+Tab corner badge
-                _hSmallIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-                if (_hSmallIcon != IntPtr.Zero)
-                {
-                    IntPtr oldIcon = SendMessage(hwnd, WM_SETICON, new IntPtr(0), _hSmallIcon);
-                    if (oldIcon != IntPtr.Zero && oldIcon != _hSmallIcon) DestroyIcon(oldIcon);
-                }
-            }
-        } catch {}
-    }
-
-    public static void CleanupIcons()
-    {
-        try {
-            if (_hBigIcon != IntPtr.Zero)
-            {
-                DestroyIcon(_hBigIcon);
-                _hBigIcon = IntPtr.Zero;
-            }
-            if (_hSmallIcon != IntPtr.Zero)
-            {
-                DestroyIcon(_hSmallIcon);
-                _hSmallIcon = IntPtr.Zero;
-            }
-        } catch {}
-    }
-}
-"@ -ReferencedAssemblies WindowsBase, PresentationCore, PresentationFramework -ErrorAction SilentlyContinue
-    }
-    catch {}
-}
+# AutoScapeChromeHelper is compiled into nativeCsSourceCore at startup
 
 $applyDarkTitleBar = {
     try {
@@ -3404,6 +3409,7 @@ $window.Add_StateChanged({
 Update-MaximizedLayout
 $script:appSettings = Load-Settings
 $script:localFolderPath = if ($script:appSettings -and $script:appSettings.LocalFolderPath) { [string]$script:appSettings.LocalFolderPath } else { '' }
+Write-TimingLog "SCRIPT: settings loaded ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
 $script:ApiKeySources = @{
     'Wallhaven' = @{
@@ -3517,7 +3523,7 @@ function Save-Settings {
     try {
         $existing = Load-Settings
         $settingsObj = @{
-            Region                = if ($RegionBox.SelectedItem) { $RegionBox.SelectedItem.Tag } else { "auto" }
+            Region                = if ($existing -and $existing.Region) { $existing.Region } else { "auto" }
             Resolution            = if ($ResolutionBox.SelectedItem) { $ResolutionBox.SelectedItem } else { "4K" }
             Target                = if ($TargetBox.SelectedItem) { $TargetBox.SelectedItem } else { "Both" }
             Style                 = if ($StyleBox.SelectedItem) { $StyleBox.SelectedItem } else { "Fit" }
@@ -3833,6 +3839,7 @@ $CaptionMinBtn = $window.FindName('CaptionMinBtn')
 $CaptionMaxBtn = $window.FindName('CaptionMaxBtn')
 $CaptionCloseBtn = $window.FindName('CaptionCloseBtn')
 $CaptionMaxIcon = $window.FindName('CaptionMaxIcon')
+Write-TimingLog "SCRIPT: window controls bound ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
 if ($CaptionMinBtn) {
     $CaptionMinBtn.Add_Click({ [System.Windows.SystemCommands]::MinimizeWindow($window) })
@@ -4334,6 +4341,7 @@ $HeaderActionRow = $window.FindName('HeaderActionRow')
 $AutoLabel = $window.FindName('AutoLabel')
 $MainContent = $window.FindName('MainContent')
 $SourceTogglePill = $window.FindName('SourceTogglePill')
+Write-TimingLog "SCRIPT: controls bound ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
 $ModalDimOverlay = $window.FindName('ModalDimOverlay')
 $ModalHost = $window.FindName('ModalHost')
@@ -4746,9 +4754,12 @@ foreach ($c in $countries) {
     $item.Content = $c.Name
     $item.Tag = $c.Code
     [void]$RegionBox.Items.Add($item)
-    if ($c.Code -eq $script:appSettings.Region) {
-        $RegionBox.SelectedItem = $item
-    }
+}
+# Gallery browsing region defaults to user's local detected region for the session
+$initialRegionCode = Get-DetectedRegionCode
+$detectedItem = $RegionBox.Items | Where-Object { $_.Tag -eq $initialRegionCode } | Select-Object -First 1
+if ($detectedItem) {
+    $RegionBox.SelectedItem = $detectedItem
 }
 
 
@@ -4800,13 +4811,14 @@ else {
 }
 
 $saveHandler = { Save-Settings }
-$RegionBox.Add_SelectionChanged($saveHandler)
+# Note: RegionBox is strictly a temporary gallery browsing filter, decoupled from AutoApply/saved settings.
 if ($ApiKeyBox) { $ApiKeyBox.Add_LostFocus($saveHandler) }
 $ResolutionBox.Add_SelectionChanged($saveHandler)
 $ResolutionBox.Add_SelectionChanged({ Update-FiltersBtnText })
 Update-FiltersBtnText
 $TargetBox.Add_SelectionChanged($saveHandler)
 $StyleBox.Add_SelectionChanged($saveHandler)
+Write-TimingLog "SCRIPT: toolbar dropdowns configured ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 
 # Toolbar dropdowns (Region/Resolution/Apply To/Style) should behave as a
 # mutually-exclusive set: clicking one while another is open must close the
@@ -6473,6 +6485,7 @@ function Load-Gallery {
             if ($script:phase1FetchSource -notin @('Wallhaven', 'Pexels') -and $script:phase1Images.Count -gt 0) {
                 $StatusText.Opacity = 0
                 Render-GalleryGrid -Images $script:phase1Images -ThumbCacheDir $script:phase1ThumbDir
+                Write-TimingLog "SCRIPT: Gallery initial paint complete ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
             }
             else {
                 $GalleryPanel.Children.Clear()
@@ -6904,7 +6917,7 @@ if ($AutoScheduleBox) {
 $spotlightWasEnabled = ($script:appSettings.SpotlightEnabled -eq $true)
 if ($spotlightWasEnabled) {
     Set-SpotlightState -Enabled:$true -Animate:$false -UpdateTask:$false
-    Update-SpotlightScheduledTaskAsync -Enable $true
+    # Scheduled task sync is deferred to initSettleTimer (2.8s after render) to avoid spawning runspaces at startup
 }
 
 if ($AutoToggleCheckbox) {
@@ -7758,14 +7771,9 @@ if ($FetchArchiveBtn) {
         })
 }
 
-
-$initialRegionCode = Get-DetectedRegionCode
-$detectedItem = $RegionBox.Items | Where-Object { $_.Tag -eq $initialRegionCode } | Select-Object -First 1
-if ($detectedItem) { 
-    $RegionBox.SelectedItem = $detectedItem 
-}
-
+Write-TimingLog "SCRIPT: all handlers attached, entering ContentRendered prep ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
 $window.Add_ContentRendered({
+        Write-TimingLog "SCRIPT: ContentRendered fired ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
         Write-InteractionLog "[APP_STARTUP] ContentRendered fired"
         Start-DeferredNativeExtraCompile
         $RegionBox.Add_SelectionChanged({ Load-Gallery })
@@ -7783,12 +7791,17 @@ $window.Add_ContentRendered({
             }
         }
 
-        # Fast post-startup memory settle timer: 2.8 seconds after window renders, do a clean flush
+        # Fast post-startup memory settle timer: 2.8 seconds after window renders, do a clean flush and deferred checks
         $script:initSettleTimer = New-Object System.Windows.Threading.DispatcherTimer
         $script:initSettleTimer.Interval = [TimeSpan]::FromMilliseconds(2800)
         $script:initSettleTimer.Add_Tick({
                 $script:initSettleTimer.Stop()
                 $script:initSettleTimer = $null
+                # Deferred background tasks that must not compete with initial startup
+                if ($spotlightWasEnabled) {
+                    Update-SpotlightScheduledTaskAsync -Enable $true
+                }
+                Ensure-AutoUpdater
                 Invoke-MemoryFlush -Reason "PostStartup-InitialSettle" -Async
             })
         $script:initSettleTimer.Start()
@@ -7811,18 +7824,24 @@ $window.Add_SizeChanged({ Update-ToolbarCompactState })
 $window.Add_Loaded({ Update-ToolbarCompactState })
 $GalleryPanel.Add_SizeChanged({ Update-GalleryViewportHeight })
 
-# --- User Guide & Shortcuts Modal --------------------------------------
-$guideModalPath = Join-Path $PSScriptRoot 'AutoScape-UserGuideModal.ps1'
-if (-not (Test-Path -LiteralPath $guideModalPath)) {
-    $guideModalPath = Join-Path $PSScriptRoot 'core\AutoScape-UserGuideModal.ps1'
-}
-if (Test-Path -LiteralPath $guideModalPath) {
-    . $guideModalPath
+# --- User Guide & Shortcuts Modal (Lazy-Loaded) ------------------------
+function Ensure-UserGuideModal {
+    if (-not (Get-Command 'Show-UserGuideDialog' -ErrorAction SilentlyContinue)) {
+        $guideModalPath = Join-Path $PSScriptRoot 'AutoScape-UserGuideModal.ps1'
+        if (-not (Test-Path -LiteralPath $guideModalPath)) {
+            $guideModalPath = Join-Path $PSScriptRoot 'core\AutoScape-UserGuideModal.ps1'
+        }
+        if (Test-Path -LiteralPath $guideModalPath) {
+            . $guideModalPath
+        }
+    }
 }
 
 if ($InfoBtn) {
     $InfoBtn.Add_Click({
             try {
+                Ensure-UserGuideModal
+                Ensure-AutoUpdater
                 Show-UserGuideDialog
             }
             catch {
