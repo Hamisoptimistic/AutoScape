@@ -195,19 +195,18 @@
         .icon-btn {
             width: 36px;
             height: 36px;
-            border: 1px solid var(--line);
-            background: var(--surface);
+            border: none;
+            background: transparent;
             color: var(--ink);
             border-radius: var(--radius);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: border-color 0.18s ease, background-color 0.18s ease;
+            transition: background-color 0.18s ease, color 0.18s ease;
         }
 
         .icon-btn:hover {
-            border-color: var(--line-strong);
             background: var(--surface-hover);
         }
 
@@ -217,22 +216,21 @@
         [data-theme="dark"] .icon-btn .moon { display: none; }
 
         .gh-link {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            color: var(--ink);
+            border-radius: var(--radius);
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            height: 36px;
-            padding: 0 13px;
-            border: 1px solid var(--line);
-            background: var(--surface);
-            border-radius: var(--radius);
+            justify-content: center;
+            cursor: pointer;
             text-decoration: none;
-            font-size: 13.5px;
-            font-weight: 500;
-            transition: border-color 0.18s ease, background-color 0.18s ease;
+            transition: background-color 0.18s ease, color 0.18s ease;
         }
 
         .gh-link:hover {
-            border-color: var(--line-strong);
             background: var(--surface-hover);
         }
 
@@ -373,50 +371,46 @@
         .install-cmd::-webkit-scrollbar { display: none; }
 
         .copy-btn {
-            font-family: var(--font-mono);
-            font-size: 11.5px;
-            font-weight: 500;
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: transparent;
+            color: var(--term-ink);
+            border: none;
             border-radius: 3px;
-            padding: 5px 11px;
+            padding: 6px 8px;
             cursor: pointer;
             flex-shrink: 0;
-            transition: background-color 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.18s ease, color 0.18s ease;
         }
 
         .copy-btn:hover {
-            background: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
         }
 
         /* Spec Strip */
         .spec-strip {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
         }
 
         .spec-cell {
-            padding: 20px 22px 20px 0;
+            padding: 20px 24px;
             border-right: 1px solid var(--line);
-        }
-
-        .spec-cell:not(:first-child) {
-            padding-left: 22px;
         }
 
         .spec-cell:last-child {
             border-right: none;
-            padding-right: 0;
         }
 
         .spec-val {
-            font-family: var(--font-mono);
-            font-size: 20px;
+            font-family: var(--font-sans);
+            font-size: 19px;
             font-weight: 600;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.01em;
             color: var(--ink);
             margin-bottom: 4px;
         }
@@ -1023,9 +1017,8 @@
                         <svg class="moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                     </button>
 
-                    <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank" rel="noopener" class="gh-link">
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-                        <span>GitHub</span>
+                    <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank" rel="noopener" class="gh-link" aria-label="GitHub repository" title="GitHub repository">
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
                     </a>
                 </div>
             </div>
@@ -1038,10 +1031,6 @@
             <div class="wrap">
                 <div class="hero-grid">
                     <div>
-                        <div class="hero-eyebrow">
-                            <span class="dot"></span>
-                            <span class="label">Native WPF utility for Windows</span>
-                        </div>
                         <h1>
                             Your Daily Dose of<br>
                             <span class="muted">Stunning Wallpapers.</span>
@@ -1066,7 +1055,10 @@
                         <div class="install-bar">
                             <span class="install-prefix">PS&gt;</span>
                             <code class="install-cmd" id="psCmd">irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex</code>
-                            <button class="copy-btn" onclick="copyCommand()" id="copyBtn">Copy</button>
+                            <button class="copy-btn" onclick="copyCommand()" id="copyBtn" aria-label="Copy command" title="Copy command">
+                                <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1074,8 +1066,8 @@
                 <!-- 4-cell Technical Spec Strip -->
                 <div class="spec-strip">
                     <div class="spec-cell">
-                        <div class="spec-val">0 MB</div>
-                        <div class="spec-note">Idle RAM once the window closes</div>
+                        <div class="spec-val">Low RAM Usage</div>
+                        <div class="spec-note">Zero background processes or tray bloat</div>
                     </div>
                     <div class="spec-cell">
                         <div class="spec-val">4 feeds</div>
@@ -1086,8 +1078,8 @@
                         <div class="spec-note">Separate Desktop &amp; Lock Screen feeds</div>
                     </div>
                     <div class="spec-cell">
-                        <div class="spec-val">No admin</div>
-                        <div class="spec-note">Installs cleanly in user AppData</div>
+                        <div class="spec-val">Google 3D Maps</div>
+                        <div class="spec-note">Explore real photo locations in 3D Earth</div>
                     </div>
                 </div>
             </div>
@@ -1516,9 +1508,20 @@
         function copyCommand() {
             var cmd = document.getElementById('psCmd').textContent;
             var btn = document.getElementById('copyBtn');
+            var copyIcon = btn.querySelector('.copy-icon');
+            var checkIcon = btn.querySelector('.check-icon');
             navigator.clipboard.writeText(cmd).then(function() {
-                btn.textContent = 'Copied';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+                if (copyIcon && checkIcon) {
+                    copyIcon.style.display = 'none';
+                    checkIcon.style.display = 'inline-block';
+                    setTimeout(function() {
+                        copyIcon.style.display = 'inline-block';
+                        checkIcon.style.display = 'none';
+                    }, 2000);
+                } else {
+                    btn.textContent = 'Copied';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+                }
             });
         }
     </script>
