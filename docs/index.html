@@ -3,1311 +3,1522 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoScape - Your Daily Dose of Stunning Wallpapers</title>
-    <meta name="description" content="Curated daily wallpapers from Bing, Windows Spotlight, Wallhaven, and Pexels. Pure Windows native architecture with zero idle RAM.">
-    
+    <title>AutoScape — Your Daily Dose of Stunning Wallpapers</title>
+    <meta name="description" content="Curated daily wallpapers from Bing, Windows Spotlight, Wallhaven, and Pexels. Uses Windows Task Scheduler for 0 MB idle RAM.">
+
     <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="assets/app.ico">
     <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
     <link rel="apple-touch-icon" href="assets/logo.png">
 
-    <!-- Theme Initialization (Defaults to Light Mode, prevents theme flicker) -->
+    <!-- Theme Initialization (Prevents flash on load) -->
     <script>
         (function() {
             var saved = localStorage.getItem('autoscape-theme-v2');
-            if (saved === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            } else {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
+            document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
         })();
     </script>
 
-    <!-- Microsoft / Fluent & Poppins Typography -->
+    <!-- Fonts: Instrument Sans + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Segoe+UI:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
     <style>
         :root, [data-theme="light"] {
-            /* Default: Windows 11 Soft Slate/Mica (Eye-friendly, Subdued & Non-Glaring) */
-            --bg-base: #e9ecf1;
-            --bg-subtle: #f1f4f8;
-            --surface-card: #f6f8fb;
-            --surface-card-hover: #ffffff;
-            --border-subtle: rgba(15, 23, 42, 0.08);
-            --border-highlight: rgba(15, 23, 42, 0.16);
-            --accent: #0078d4;
-            --accent-hover: #0067b8;
-            --accent-glow: rgba(0, 120, 212, 0.22);
-            --text-primary: #1e293b;
-            --text-secondary: #475569;
-            --text-tertiary: #64748b;
-            --nav-bg: rgba(233, 236, 241, 0.9);
-            --hero-title-grad: linear-gradient(180deg, #0f172a 35%, #334155 100%);
-            --hero-slogan-span: linear-gradient(135deg, #0284c7 0%, #0078d4 100%);
-            --btn-secondary-bg: #f6f8fb;
-            --btn-secondary-hover: #ffffff;
-            --btn-subtle-bg: rgba(15, 23, 42, 0.05);
-            --btn-subtle-hover: rgba(15, 23, 42, 0.1);
-            --card-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-            --img-shadow: drop-shadow(0 16px 36px rgba(15, 23, 42, 0.12));
-            --footer-bg: #dde2ea;
-            --terminal-bg: #141720;
-            --terminal-border: rgba(15, 23, 42, 0.14);
-            --badge-bg: rgba(0, 120, 212, 0.08);
-            --badge-good-color: #15803d;
-            --badge-bad-color: #b91c1c;
-            --arrow-bg: rgba(246, 248, 251, 0.9);
-            --arrow-bg-hover: #ffffff;
-            --arrow-color: #1e293b;
-            --dots-bg: rgba(246, 248, 251, 0.9);
-            --dot-active-bg: #0078d4;
-            --table-header-bg: rgba(15, 23, 42, 0.04);
-            --bg-radial-1: rgba(0, 120, 212, 0.06);
-            --bg-radial-2: rgba(99, 102, 241, 0.03);
-            
-            --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            --font-poppins: 'Poppins', var(--font-family);
+            --bg: #f4f3ef;
+            --surface: #faf9f6;
+            --surface-hover: #ffffff;
+            --surface-alt: #eceae3;
+            --ink: #141413;
+            --ink-muted: #57554f;
+            --ink-subtle: #85827a;
+            --line: rgba(20, 20, 19, 0.12);
+            --line-strong: rgba(20, 20, 19, 0.28);
+            --accent: #005fb8;
+            --accent-hover: #004e98;
+            --accent-tint: rgba(0, 95, 184, 0.08);
+            --term-bg: #16171a;
+            --term-ink: #e7e6e1;
+            --term-accent: #7cc0ff;
+            --good: #116b36;
+            --header-bg: rgba(244, 243, 239, 0.88);
+            --stage-bg: #e8e6de;
+            --shot-shadow: 0 24px 60px -16px rgba(20, 20, 19, 0.22);
+
+            --font-sans: 'Instrument Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             --font-mono: 'JetBrains Mono', Consolas, monospace;
-            --radius-sm: 6px;
-            --radius-md: 10px;
-            --radius-lg: 16px;
-            --radius-pill: 9999px;
-            --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            --radius: 4px;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         [data-theme="dark"] {
-            /* Dark Theme (Windows 11 Fluent Dark) */
-            --bg-base: #0c0d10;
-            --bg-subtle: #14161b;
-            --surface-card: #1a1d24;
-            --surface-card-hover: #222630;
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --border-highlight: rgba(255, 255, 255, 0.18);
-            --accent: #0078d4;
-            --accent-hover: #1084d8;
-            --accent-glow: rgba(0, 120, 212, 0.4);
-            --text-primary: #ffffff;
-            --text-secondary: #9ea7b3;
-            --text-tertiary: #68707c;
-            --nav-bg: rgba(12, 13, 16, 0.85);
-            --hero-title-grad: linear-gradient(180deg, #ffffff 40%, #c9d1d9 100%);
-            --hero-slogan-span: linear-gradient(135deg, #60a5fa 0%, #38bdf8 100%);
-            --btn-secondary-bg: #1a1d24;
-            --btn-secondary-hover: #222630;
-            --btn-subtle-bg: rgba(255, 255, 255, 0.06);
-            --btn-subtle-hover: rgba(255, 255, 255, 0.14);
-            --card-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-            --img-shadow: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.65));
-            --footer-bg: #090a0d;
-            --terminal-bg: #131519;
-            --terminal-border: rgba(255, 255, 255, 0.1);
-            --badge-bg: rgba(0, 120, 212, 0.15);
-            --badge-good-color: #4ade80;
-            --badge-bad-color: #f87171;
-            --arrow-bg: rgba(18, 20, 25, 0.6);
-            --arrow-bg-hover: rgba(18, 20, 25, 0.9);
-            --arrow-color: #ffffff;
-            --dots-bg: rgba(18, 20, 25, 0.6);
-            --dot-active-bg: #ffffff;
-            --table-header-bg: rgba(255, 255, 255, 0.02);
-            --bg-radial-1: rgba(0, 120, 212, 0.12);
-            --bg-radial-2: rgba(76, 29, 149, 0.08);
+            --bg: #0d0e11;
+            --surface: #131519;
+            --surface-hover: #191c22;
+            --surface-alt: #181a20;
+            --ink: #ecebe6;
+            --ink-muted: #9a9d9e;
+            --ink-subtle: #64676b;
+            --line: rgba(236, 235, 230, 0.11);
+            --line-strong: rgba(236, 235, 230, 0.26);
+            --accent: #4da3ff;
+            --accent-hover: #6db5ff;
+            --accent-tint: rgba(77, 163, 255, 0.12);
+            --term-bg: #090a0c;
+            --term-ink: #ecebe6;
+            --term-accent: #7cc0ff;
+            --good: #4ade80;
+            --header-bg: rgba(13, 14, 17, 0.88);
+            --stage-bg: #08090b;
+            --shot-shadow: 0 28px 70px -12px rgba(0, 0, 0, 0.72);
         }
 
-        * {
+        *, *::before, *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
 
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-primary);
-            font-family: var(--font-family);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 50% 0%, var(--bg-radial-1) 0px, transparent 60%),
-                radial-gradient(circle at 90% 20%, var(--bg-radial-2) 0px, transparent 50%);
-            background-attachment: fixed;
-            transition: background-color 0.3s ease, color 0.3s ease;
+        html {
+            scroll-behavior: smooth;
         }
 
-        /* ---------------- Navigation ---------------- */
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .wrap {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 0 28px;
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        .label {
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--ink-subtle);
+        }
+
+        /* ---------------- Header ---------------- */
         header {
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            background: var(--nav-bg);
-            border-bottom: 1px solid var(--border-subtle);
-            transition: background 0.3s ease, border-color 0.3s ease;
+            background: var(--header-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
         }
 
-        .nav-container {
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 14px 24px;
+        .nav {
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 24px;
         }
 
         .brand {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 11px;
             text-decoration: none;
-            color: var(--text-primary);
-            font-family: var(--font-poppins);
             font-weight: 700;
-            font-size: 21px;
-            letter-spacing: -0.3px;
+            font-size: 17px;
+            letter-spacing: -0.02em;
         }
 
         .brand img {
-            width: 38px;
-            height: 38px;
-            filter: drop-shadow(0 4px 12px rgba(0, 120, 212, 0.35));
-            transition: var(--transition);
+            width: 28px;
+            height: 28px;
+            display: block;
         }
 
-        .brand:hover img {
-            transform: scale(1.05);
+        .brand-meta {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-subtle);
+            border-left: 1px solid var(--line);
+            padding-left: 11px;
+            font-weight: 400;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
         }
 
         .nav-links {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 22px;
         }
 
         .nav-links a {
-            color: var(--text-secondary);
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
-            transition: var(--transition);
+            color: var(--ink-muted);
+            transition: color 0.18s ease;
         }
 
         .nav-links a:hover {
-            color: var(--text-primary);
+            color: var(--ink);
         }
 
-        /* Theme Toggle Button */
-        .theme-toggle {
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink);
+            border-radius: var(--radius);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 38px;
-            height: 38px;
-            border-radius: var(--radius-sm);
-            background: var(--btn-subtle-bg);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
             cursor: pointer;
-            position: relative;
-            outline: none;
-            transition: var(--transition);
+            transition: border-color 0.18s ease, background-color 0.18s ease;
         }
 
-        .theme-toggle:hover {
-            background: var(--btn-subtle-hover);
-            border-color: var(--border-highlight);
-            transform: translateY(-1px);
+        .icon-btn:hover {
+            border-color: var(--line-strong);
+            background: var(--surface-hover);
         }
 
-        .theme-toggle-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: absolute;
-            inset: 0;
-            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
-        }
+        .icon-btn .sun { display: none; }
+        .icon-btn .moon { display: block; }
+        [data-theme="dark"] .icon-btn .sun { display: block; }
+        [data-theme="dark"] .icon-btn .moon { display: none; }
 
-        /* Light mode (Default): Moon active, Sun rotated out */
-        .theme-toggle-icon.sun {
-            opacity: 0;
-            transform: scale(0.5) rotate(90deg);
-            color: #fbbf24;
-        }
-
-        .theme-toggle-icon.moon {
-            opacity: 1;
-            transform: scale(1) rotate(0deg);
-            color: #0078d4;
-        }
-
-        /* Dark mode: Sun active, Moon rotated out */
-        [data-theme="dark"] .theme-toggle-icon.sun {
-            opacity: 1;
-            transform: scale(1) rotate(0deg);
-        }
-
-        [data-theme="dark"] .theme-toggle-icon.moon {
-            opacity: 0;
-            transform: scale(0.5) rotate(-90deg);
-        }
-
-        .github-btn {
+        .gh-link {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
-            background: var(--btn-subtle-bg);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-sm);
-            color: var(--text-primary) !important;
+            height: 36px;
+            padding: 0 13px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            border-radius: var(--radius);
+            text-decoration: none;
             font-size: 13.5px;
             font-weight: 500;
-            transition: var(--transition);
+            transition: border-color 0.18s ease, background-color 0.18s ease;
         }
 
-        .github-btn:hover {
-            background: var(--btn-subtle-hover);
-            border-color: var(--border-highlight);
-            transform: translateY(-1px);
+        .gh-link:hover {
+            border-color: var(--line-strong);
+            background: var(--surface-hover);
         }
 
-        /* ---------------- Hero Section ---------------- */
+        /* ---------------- Hero ---------------- */
         .hero {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 56px 24px 36px;
-            text-align: center;
+            padding: 72px 0 56px;
         }
 
-        .hero-logo-wrapper {
+        .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+            gap: 48px;
+            align-items: end;
+            padding-bottom: 52px;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .hero-eyebrow .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .hero h1 {
+            font-size: clamp(42px, 5.8vw, 72px);
+            font-weight: 700;
+            line-height: 0.98;
+            letter-spacing: -0.04em;
+            color: var(--ink);
+        }
+
+        .hero h1 .muted {
+            color: var(--ink-subtle);
+        }
+
+        .hero-right {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            margin-bottom: 20px;
+            gap: 22px;
         }
 
-        .hero-logo {
-            width: 104px;
-            height: 104px;
-            filter: drop-shadow(0 16px 40px rgba(0, 120, 212, 0.4));
-            transition: var(--transition);
+        .hero-desc {
+            font-size: 17px;
+            line-height: 1.6;
+            color: var(--ink-muted);
+            max-width: 46ch;
         }
 
-        .hero-logo:hover {
-            transform: scale(1.05) rotate(2deg);
-        }
-
-        .hero-app-title {
-            font-family: var(--font-poppins);
-            font-size: clamp(48px, 8vw, 76px);
-            font-weight: 800;
-            letter-spacing: -2px;
-            margin-top: 14px;
-            line-height: 1;
-            background: var(--hero-title-grad);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero-slogan {
-            font-size: clamp(22px, 3.4vw, 32px);
-            font-weight: 700;
-            letter-spacing: -0.6px;
-            color: var(--text-primary);
-            margin-bottom: 12px;
-            line-height: 1.25;
-        }
-
-        .hero-slogan span {
-            background: var(--hero-slogan-span);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero p.lead {
-            font-size: clamp(16px, 2.2vw, 18px);
-            color: var(--text-secondary);
-            max-width: 640px;
-            margin: 0 auto 32px;
-            font-weight: 400;
-            line-height: 1.55;
-        }
-
-        .hero-cta {
+        .cta-row {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 30px;
+            gap: 12px;
         }
 
         .btn-primary {
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            padding: 14px 28px;
-            border-radius: var(--radius-md);
-            background: var(--accent);
-            color: #ffffff;
-            font-size: 15.5px;
-            font-weight: 600;
+            height: 46px;
+            padding: 0 22px;
+            background: var(--ink);
+            color: var(--bg);
+            border: 1px solid var(--ink);
+            border-radius: var(--radius);
             text-decoration: none;
-            box-shadow: 0 8px 24px var(--accent-glow);
-            transition: var(--transition);
+            font-size: 14.5px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            transition: transform 0.18s var(--ease), opacity 0.18s ease;
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 14px 32px rgba(0, 120, 212, 0.48);
-        }
-
-        .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 24px;
-            border-radius: var(--radius-md);
-            background: var(--btn-secondary-bg);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
-            font-size: 15.5px;
-            font-weight: 500;
-            text-decoration: none;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
-        }
-
-        .btn-secondary:hover {
-            background: var(--btn-secondary-hover);
-            border-color: var(--border-highlight);
+            opacity: 0.88;
             transform: translateY(-1px);
         }
 
-        /* Fixed Non-Wrapping PowerShell Box */
-        .terminal-box {
-            max-width: 660px;
-            margin: 0 auto;
-            background: var(--terminal-bg);
-            border: 1px solid var(--terminal-border);
-            border-radius: var(--radius-md);
-            padding: 10px 16px;
+        .btn-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 46px;
+            padding: 0 18px;
+            background: transparent;
+            color: var(--ink);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            text-decoration: none;
+            font-size: 14.5px;
+            font-weight: 500;
+            transition: background-color 0.18s ease;
+        }
+
+        .btn-outline:hover {
+            background: var(--surface);
+        }
+
+        /* PowerShell bar */
+        .install-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--term-bg);
+            color: var(--term-ink);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            padding: 8px 10px 8px 14px;
+            min-width: 0;
+        }
+
+        .install-prefix {
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--term-accent);
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .install-cmd {
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--term-ink);
+            white-space: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            flex: 1;
+            min-width: 0;
+            user-select: all;
+        }
+
+        .install-cmd::-webkit-scrollbar { display: none; }
+
+        .copy-btn {
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 3px;
+            padding: 5px 11px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background-color 0.18s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        /* Spec Strip */
+        .spec-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .spec-cell {
+            padding: 20px 22px 20px 0;
+            border-right: 1px solid var(--line);
+        }
+
+        .spec-cell:not(:first-child) {
+            padding-left: 22px;
+        }
+
+        .spec-cell:last-child {
+            border-right: none;
+            padding-right: 0;
+        }
+
+        .spec-val {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+
+        .spec-note {
+            font-size: 13.5px;
+            color: var(--ink-muted);
+        }
+
+        /* ---------------- Interactive Screenshot Showcase ---------------- */
+        .showcase {
+            padding: 24px 0 96px;
+        }
+
+        .showcase-frame {
+            border: 1px solid var(--line);
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .showcase-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 14px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+            gap: 16px;
+            border-bottom: 1px solid var(--line);
+            padding: 0 16px 0 0;
+            background: var(--surface);
+            flex-wrap: wrap;
         }
 
-        .terminal-prefix {
-            color: #60a5fa;
-            font-family: var(--font-mono);
-            font-size: 13px;
-            user-select: none;
-            white-space: nowrap;
-            flex-shrink: 0;
-            font-weight: 600;
-        }
-
-        .terminal-command {
-            font-family: var(--font-mono);
-            font-size: 13px;
-            color: #93c5fd;
+        .showcase-tabs {
+            display: flex;
+            align-items: stretch;
             overflow-x: auto;
-            white-space: nowrap;
             scrollbar-width: none;
-            user-select: all;
-            flex-grow: 1;
-            text-align: left;
         }
 
-        .copy-pill {
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            color: #ffffff;
-            font-size: 12px;
+        .showcase-tabs::-webkit-scrollbar { display: none; }
+
+        .shot-tab {
+            appearance: none;
+            background: transparent;
+            border: none;
+            border-right: 1px solid var(--line);
+            padding: 14px 20px;
+            font-family: var(--font-sans);
+            font-size: 13.5px;
             font-weight: 500;
-            padding: 6px 14px;
-            border-radius: var(--radius-sm);
+            color: var(--ink-muted);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            transition: var(--transition);
+            gap: 9px;
             white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .copy-pill:hover {
-            background: rgba(255, 255, 255, 0.22);
-            border-color: rgba(255, 255, 255, 0.32);
-        }
-
-        /* ---------------- Wide Seamless Gallery Carousel ---------------- */
-        .carousel-section {
-            max-width: 1440px;
-            width: 95vw;
-            margin: 20px auto 96px;
-            padding: 0 16px;
-        }
-
-        .carousel-container {
             position: relative;
-            background: transparent;
-            border: none;
-            overflow: hidden;
+            transition: color 0.18s ease, background-color 0.18s ease;
         }
 
-        .carousel-track {
+        .shot-tab:hover {
+            color: var(--ink);
+            background: var(--surface-alt);
+        }
+
+        .shot-tab.active {
+            color: var(--ink);
+            background: var(--bg);
+        }
+
+        .shot-tab.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .shot-tab .num {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-subtle);
+        }
+
+        .shot-tab.active .num {
+            color: var(--accent);
+        }
+
+        .showcase-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .slide-counter {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--ink-subtle);
+            margin-right: 6px;
+        }
+
+        .stage {
+            position: relative;
+            background: var(--stage-bg);
+            padding: clamp(16px, 3vw, 40px);
+        }
+
+        .stage-track {
             position: relative;
             width: 100%;
-            aspect-ratio: 1024 / 550;
-            overflow: hidden;
-            background: transparent;
+            aspect-ratio: 16 / 9;
         }
 
-        .carousel-slide {
+        .slide {
             position: absolute;
             inset: 0;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.45s ease, transform 0.45s ease;
-            transform: scale(0.99);
+            transform: translateY(6px);
+            transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
             display: flex;
             align-items: center;
             justify-content: center;
-            background: transparent;
         }
 
-        .carousel-slide.active {
+        .slide.active {
             opacity: 1;
             visibility: visible;
-            transform: scale(1);
+            transform: translateY(0);
         }
 
-        .carousel-slide img {
-            width: 100%;
-            height: 100%;
+        .slide img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
             object-fit: contain;
+            border-radius: 6px;
+            box-shadow: var(--shot-shadow);
             display: block;
-            border-radius: var(--radius-lg);
-            filter: var(--img-shadow);
         }
 
-        /* Carousel Navigation Controls */
-        .carousel-arrow {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 10;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: var(--arrow-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-subtle);
-            color: var(--arrow-color);
+        .showcase-caption {
             display: flex;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-            outline: none;
-            opacity: 0.88;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+            justify-content: space-between;
+            gap: 16px;
+            padding: 13px 20px;
+            border-top: 1px solid var(--line);
+            font-size: 13.5px;
+            color: var(--ink-muted);
+            background: var(--surface);
         }
 
-        .carousel-arrow:hover {
-            opacity: 1;
-            background: var(--arrow-bg-hover);
-            transform: translateY(-50%) scale(1.08);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        .kbd-hint {
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--ink-subtle);
+            white-space: nowrap;
         }
 
-        .carousel-arrow.prev {
-            left: 24px;
+        /* ---------------- Section Scaffolding ---------------- */
+        .section {
+            padding: 84px 0;
+            border-top: 1px solid var(--line);
         }
 
-        .carousel-arrow.next {
-            right: 24px;
+        .section-head {
+            display: grid;
+            grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+            gap: 36px;
+            align-items: end;
+            margin-bottom: 48px;
         }
 
-        .carousel-dots {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            display: flex;
-            gap: 10px;
-            padding: 8px 16px;
-            border-radius: var(--radius-pill);
-            background: var(--dots-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-subtle);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        }
-
-        .carousel-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: rgba(125, 125, 125, 0.4);
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-            padding: 0;
-        }
-
-        .carousel-dot.active {
-            background: var(--dot-active-bg);
-            width: 26px;
-            border-radius: var(--radius-pill);
-            box-shadow: 0 0 10px rgba(0, 120, 212, 0.5);
-        }
-
-        /* ---------------- Visual Auto-Feature Flow Diagram ---------------- */
-        .flow-section {
-            max-width: 1200px;
-            margin: 0 auto 108px;
-            padding: 0 24px;
-        }
-
-        .section-header {
-            text-align: center;
-            max-width: 640px;
-            margin: 0 auto 48px;
-        }
-
-        .section-header h2 {
-            font-size: 32px;
+        .section-head h2 {
+            font-size: clamp(28px, 3.6vw, 42px);
             font-weight: 700;
-            letter-spacing: -0.6px;
-            margin-bottom: 12px;
-            color: var(--text-primary);
+            letter-spacing: -0.03em;
+            line-height: 1.08;
+            margin-top: 10px;
         }
 
-        .section-header p {
-            color: var(--text-secondary);
+        .section-head p {
             font-size: 16px;
-            line-height: 1.55;
+            color: var(--ink-muted);
+            max-width: 54ch;
         }
 
-        .flow-grid {
+        /* ---------------- How It Runs ---------------- */
+        .steps-ledger {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            position: relative;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
         }
 
-        .flow-card {
-            background: var(--surface-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            padding: 32px 26px;
+        .step-col {
+            padding: 32px 28px;
+            border-right: 1px solid var(--line);
             display: flex;
             flex-direction: column;
-            position: relative;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
+            gap: 14px;
         }
 
-        .flow-card:hover {
-            background: var(--surface-card-hover);
-            border-color: var(--border-highlight);
-            transform: translateY(-3px);
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+        .step-col:last-child {
+            border-right: none;
         }
 
-        .flow-step-num {
+        .step-tag {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .step-col h3 {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .step-col p {
+            font-size: 14.5px;
+            color: var(--ink-muted);
+            line-height: 1.6;
+        }
+
+        /* Lifecycle Diagram */
+        .lifecycle {
+            margin-top: 20px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-alt);
+            padding: 18px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+        }
+
+        .lc-node {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--ink);
+        }
+
+        .lc-pill {
+            padding: 3px 8px;
+            border: 1px solid var(--line-strong);
+            border-radius: 3px;
+            background: var(--surface);
+            font-weight: 600;
+        }
+
+        .lc-pill.zero {
+            color: var(--good);
+            border-color: var(--good);
+        }
+
+        .lc-arrow {
+            color: var(--ink-subtle);
+            user-select: none;
+        }
+
+        /* ---------------- Features Hairline Grid ---------------- */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-top: 1px solid var(--line);
+            border-left: 1px solid var(--line);
+            background: var(--surface);
+        }
+
+        .bento-item {
+            padding: 32px 28px;
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: background-color 0.2s ease;
+        }
+
+        .bento-item:hover {
+            background: var(--surface-hover);
+        }
+
+        .bento-icon {
+            width: 34px;
+            height: 34px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--badge-bg);
             color: var(--accent);
-            font-weight: 700;
-            font-size: 14px;
-            margin-bottom: 18px;
-            font-family: var(--font-mono);
+            background: var(--accent-tint);
+            margin-bottom: 6px;
         }
 
-        .flow-card h3 {
-            font-size: 18px;
+        .bento-item h3 {
+            font-size: 17.5px;
             font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 10px;
+            letter-spacing: -0.015em;
         }
 
-        .flow-card p {
-            font-size: 14px;
-            color: var(--text-secondary);
+        .bento-item p {
+            font-size: 14.5px;
+            color: var(--ink-muted);
             line-height: 1.6;
         }
 
-        .flow-badge {
-            margin-top: auto;
-            padding-top: 18px;
-            font-size: 12.5px;
-            color: var(--accent);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* ---------------- Feature Pillars ---------------- */
-        .features-section {
-            max-width: 1200px;
-            margin: 0 auto 108px;
-            padding: 0 24px;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
-        }
-
-        .feature-card {
-            background: var(--surface-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            padding: 32px 28px;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .feature-card:hover {
-            background: var(--surface-card-hover);
-            border-color: var(--border-highlight);
-            transform: translateY(-3px);
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
-        }
-
-        .feature-icon-wrapper {
-            width: 44px;
-            height: 44px;
-            border-radius: var(--radius-md);
-            background: var(--badge-bg);
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            font-size: 20px;
-        }
-
-        .feature-card h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--text-primary);
-        }
-
-        .feature-card p {
-            font-size: 14px;
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* ---------------- Comparison Section ---------------- */
-        .compare-section {
-            max-width: 960px;
-            margin: 0 auto 108px;
-            padding: 0 24px;
+        /* ---------------- Comparison Ledger ---------------- */
+        .compare-wrap {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
+            overflow-x: auto;
         }
 
         .compare-table {
             width: 100%;
             border-collapse: collapse;
-            background: var(--surface-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-            box-shadow: var(--card-shadow);
+            min-width: 620px;
         }
 
-        .compare-table th, .compare-table td {
-            padding: 16px 20px;
+        .compare-table th,
+        .compare-table td {
+            padding: 18px 24px;
             text-align: left;
-            border-bottom: 1px solid var(--border-subtle);
-            font-size: 14px;
+            border-bottom: 1px solid var(--line);
+            font-size: 14.5px;
         }
 
-        .compare-table th {
-            background: var(--table-header-bg);
-            color: var(--text-primary);
-            font-weight: 600;
+        .compare-table thead th {
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--ink-subtle);
+            background: var(--surface-alt);
+            font-weight: 500;
         }
 
-        .compare-table tr:last-child td {
+        .compare-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        .badge-good {
-            color: var(--badge-good-color);
+        .compare-table td:first-child {
             font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            color: var(--ink);
+            width: 26%;
         }
 
-        .badge-bad {
-            color: var(--badge-bad-color);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+        .compare-table td:nth-child(2) {
+            color: var(--ink);
+            font-weight: 500;
         }
 
-        /* ---------------- FAQ Accordion ---------------- */
-        .faq-section {
-            max-width: 860px;
-            margin: 0 auto 108px;
-            padding: 0 24px;
+        .compare-table td:nth-child(3) {
+            color: var(--ink-subtle);
         }
 
-        .faq-item {
-            border: 1px solid var(--border-subtle);
-            background: var(--surface-card);
-            border-radius: var(--radius-md);
-            margin-bottom: 12px;
-            overflow: hidden;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
+        .metric-good {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--good);
+            font-weight: 600;
         }
 
-        .faq-item:hover {
-            border-color: var(--border-highlight);
+        /* ---------------- FAQ Split ---------------- */
+        .faq-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+            gap: 56px;
+            align-items: start;
         }
 
-        .faq-question {
-            padding: 18px 22px;
+        .faq-sticky {
+            position: sticky;
+            top: 96px;
+        }
+
+        .faq-sticky h2 {
+            font-size: clamp(28px, 3.4vw, 40px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.08;
+            margin: 10px 0 14px;
+        }
+
+        .faq-sticky p {
+            font-size: 15px;
+            color: var(--ink-muted);
+            margin-bottom: 20px;
+        }
+
+        .faq-sticky a {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            padding-bottom: 2px;
+        }
+
+        .faq-sticky a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        .faq-list {
+            border-top: 1px solid var(--line);
+        }
+
+        .faq-row {
+            border-bottom: 1px solid var(--line);
+        }
+
+        .faq-trigger {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 20px 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            cursor: pointer;
+            gap: 20px;
+            text-align: left;
+            font-family: var(--font-sans);
+            font-size: 16px;
             font-weight: 600;
-            font-size: 15px;
-            color: var(--text-primary);
-            user-select: none;
+            color: var(--ink);
+            cursor: pointer;
         }
 
-        .faq-icon {
+        .faq-trigger:hover {
+            color: var(--accent);
+        }
+
+        .faq-plus {
+            font-family: var(--font-mono);
             font-size: 18px;
-            color: var(--text-secondary);
+            font-weight: 400;
+            color: var(--ink-subtle);
+            flex-shrink: 0;
             transition: transform 0.2s ease;
         }
 
-        .faq-item.open .faq-icon {
+        .faq-row.open .faq-plus {
             transform: rotate(45deg);
+            color: var(--accent);
         }
 
-        .faq-answer {
-            padding: 0 22px 18px;
-            color: var(--text-secondary);
-            font-size: 14px;
-            line-height: 1.6;
+        .faq-body {
             display: none;
+            padding: 0 36px 22px 0;
+            font-size: 14.5px;
+            line-height: 1.65;
+            color: var(--ink-muted);
         }
 
-        .faq-item.open .faq-answer {
+        .faq-row.open .faq-body {
             display: block;
+        }
+
+        .faq-body code {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            background: var(--surface-alt);
+            border: 1px solid var(--line);
+            padding: 1px 6px;
+            border-radius: 3px;
+            color: var(--ink);
         }
 
         /* ---------------- Footer ---------------- */
         footer {
-            border-top: 1px solid var(--border-subtle);
-            background: var(--footer-bg);
-            padding: 48px 24px 36px;
-            color: var(--text-secondary);
-            font-size: 13.5px;
-            transition: background 0.3s ease;
+            border-top: 1px solid var(--line);
+            background: var(--surface);
+            padding: 36px 0;
         }
 
-        .footer-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .footer-inner {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
+            justify-content: space-between;
             gap: 20px;
+            flex-wrap: wrap;
+            font-size: 13.5px;
+            color: var(--ink-muted);
         }
 
         .footer-links {
             display: flex;
-            gap: 20px;
+            align-items: center;
+            gap: 22px;
+            flex-wrap: wrap;
         }
 
         .footer-links a {
-            color: var(--text-secondary);
             text-decoration: none;
-            transition: var(--transition);
+            color: var(--ink-muted);
+            transition: color 0.18s ease;
         }
 
         .footer-links a:hover {
-            color: var(--text-primary);
+            color: var(--ink);
         }
 
-        @media (max-width: 860px) {
-            .flow-grid {
+        /* ---------------- Responsive ---------------- */
+        @media (max-width: 980px) {
+            .hero-grid,
+            .section-head,
+            .faq-layout {
+                grid-template-columns: 1fr;
+                gap: 28px;
+            }
+            .faq-sticky {
+                position: static;
+            }
+            .spec-strip {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .spec-cell {
+                padding: 18px 16px;
+                border-bottom: 1px solid var(--line);
+            }
+            .spec-cell:nth-child(2n) {
+                border-right: none;
+            }
+            .spec-cell:nth-last-child(-n+2) {
+                border-bottom: none;
+            }
+            .steps-ledger,
+            .bento-grid {
                 grid-template-columns: 1fr;
             }
-            .carousel-arrow {
-                width: 40px;
-                height: 40px;
+            .step-col {
+                border-right: none;
+                border-bottom: 1px solid var(--line);
             }
-            .carousel-arrow.prev { left: 10px; }
-            .carousel-arrow.next { right: 10px; }
+            .step-col:last-child {
+                border-bottom: none;
+            }
         }
 
-        @media (max-width: 768px) {
-            .nav-links a:not(.github-btn) {
+        @media (max-width: 720px) {
+            .wrap {
+                padding: 0 18px;
+            }
+            .nav-links,
+            .brand-meta,
+            .kbd-hint {
                 display: none;
             }
-            .nav-links {
-                gap: 12px;
+            .hero {
+                padding: 44px 0 36px;
+            }
+            .section {
+                padding: 60px 0;
+            }
+            .lifecycle {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .lc-arrow {
+                transform: rotate(90deg);
+                margin-left: 8px;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- Navigation Header -->
     <header>
-        <div class="nav-container">
+        <div class="wrap nav">
             <a href="#" class="brand">
-                <img src="assets/logo.svg" alt="AutoScape Logo" onerror="this.style.display='none'">
+                <img src="assets/logo.svg" alt="AutoScape" onerror="this.style.display='none'">
                 <span>AutoScape</span>
+                <span class="brand-meta">WIN 10/11 · MIT</span>
             </a>
-            <div class="nav-links">
-                <a href="#screenshots">Screenshots</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#features">Features</a>
-                <a href="#compare">Why Native?</a>
-                <a href="#faq">FAQ</a>
-                
-                <!-- Theme Toggle Button -->
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle color theme" title="Toggle Light / Dark mode">
-                    <span class="theme-toggle-icon sun">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                    </span>
-                    <span class="theme-toggle-icon moon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                    </span>
-                </button>
 
-                <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank" class="github-btn">
-                    <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-                    GitHub
-                </a>
+            <div class="nav-right">
+                <nav class="nav-links" aria-label="Primary">
+                    <a href="#gallery">Screens</a>
+                    <a href="#how">How it runs</a>
+                    <a href="#features">Details</a>
+                    <a href="#compare">Compare</a>
+                    <a href="#faq">FAQ</a>
+                </nav>
+
+                <div class="nav-actions">
+                    <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Switch theme" title="Switch light or dark theme">
+                        <svg class="sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+                        <svg class="moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    </button>
+
+                    <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank" rel="noopener" class="gh-link">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                        <span>GitHub</span>
+                    </a>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- Hero Section -->
     <main>
+        <!-- Hero -->
         <section class="hero">
-            <div class="hero-logo-wrapper">
-                <img src="assets/logo.svg" alt="AutoScape Logo" class="hero-logo">
-                <div class="hero-app-title">AutoScape</div>
-            </div>
-
-            <h2 class="hero-slogan">Your Daily Dose of <span>Stunning Wallpapers</span></h2>
-            <p class="lead">
-                Curated daily wallpapers from Bing, Windows Spotlight, Wallhaven, and Pexels.
-            </p>
-
-            <div class="hero-cta">
-                <a href="https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe" class="btn-primary">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Download AutoScape-Setup.exe
-                </a>
-                <a href="https://github.com/Hamisoptimistic/AutoScape/releases/latest" target="_blank" class="btn-secondary">
-                    View Release Notes
-                </a>
-            </div>
-
-            <!-- Fixed Non-Wrapping PowerShell Box -->
-            <div class="terminal-box">
-                <span class="terminal-prefix">PS &gt;</span>
-                <span class="terminal-command" id="psCmd">irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex</span>
-                <button class="copy-pill" onclick="copyCommand()">
-                    <span id="copyText">Copy</span>
-                </button>
-            </div>
-        </section>
-
-        <!-- Wide Seamless Gallery Carousel -->
-        <section class="carousel-section" id="screenshots">
-            <div class="carousel-container" id="carouselContainer">
-                
-                <!-- Navigation Arrows -->
-                <button class="carousel-arrow prev" onclick="prevSlide()" aria-label="Previous image">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-                <button class="carousel-arrow next" onclick="nextSlide()" aria-label="Next image">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                </button>
-
-                <!-- Slides Track -->
-                <div class="carousel-track">
-                    <div class="carousel-slide active">
-                        <img src="assets/slide-spotlight.png" alt="AutoScape Spotlight Gallery View">
+            <div class="wrap">
+                <div class="hero-grid">
+                    <div>
+                        <div class="hero-eyebrow">
+                            <span class="dot"></span>
+                            <span class="label">Native WPF utility for Windows</span>
+                        </div>
+                        <h1>
+                            Your Daily Dose of<br>
+                            <span class="muted">Stunning Wallpapers.</span>
+                        </h1>
                     </div>
-                    <div class="carousel-slide">
-                        <img src="assets/slide-schedule.png" alt="AutoScape Wallpaper Sources and Schedule Settings">
-                    </div>
-                    <div class="carousel-slide">
-                        <img src="assets/slide-preferences.png" alt="AutoScape Preferences, 4K Resolution and Fit Styles">
-                    </div>
-                    <div class="carousel-slide">
-                        <img src="assets/slide-search.png" alt="AutoScape Bing Archive Search by Date">
+
+                    <div class="hero-right">
+                        <p class="hero-desc">
+                            Curated daily wallpapers from Bing, Windows Spotlight, Wallhaven, and Pexels.
+                        </p>
+
+                        <div class="cta-row">
+                            <a href="https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe" class="btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Download Setup (.exe)
+                            </a>
+                            <a href="https://github.com/Hamisoptimistic/AutoScape/releases/latest" target="_blank" rel="noopener" class="btn-outline">
+                                Release notes
+                            </a>
+                        </div>
+
+                        <div class="install-bar">
+                            <span class="install-prefix">PS&gt;</span>
+                            <code class="install-cmd" id="psCmd">irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex</code>
+                            <button class="copy-btn" onclick="copyCommand()" id="copyBtn">Copy</button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Dots Indicator -->
-                <div class="carousel-dots">
-                    <button class="carousel-dot active" onclick="goToSlide(0)" aria-label="Slide 1"></button>
-                    <button class="carousel-dot" onclick="goToSlide(1)" aria-label="Slide 2"></button>
-                    <button class="carousel-dot" onclick="goToSlide(2)" aria-label="Slide 3"></button>
-                    <button class="carousel-dot" onclick="goToSlide(3)" aria-label="Slide 4"></button>
-                </div>
-
-            </div>
-        </section>
-
-        <!-- How Automatic Rotation Works Flow Section -->
-        <section class="flow-section" id="how-it-works">
-            <div class="section-header">
-                <h2>How Auto-Rotation Works</h2>
-                <p>Designed strictly around native Windows APIs. No permanent background service, zero memory leaks, zero battery drain.</p>
-            </div>
-
-            <div class="flow-grid">
-                <div class="flow-card">
-                    <div class="flow-step-num">01</div>
-                    <h3>Choose Wallpaper Engines</h3>
-                    <p>Select your favorite sources for Desktop and Lock Screen independently. Choose Bing 4K, Spotlight, Wallhaven Nature, or Pexels.</p>
-                    <div class="flow-badge">✓ Independent Desktop & Lock Screen</div>
-                </div>
-
-                <div class="flow-card">
-                    <div class="flow-step-num">02</div>
-                    <h3>Select Rotation Interval</h3>
-                    <p>Toggle Auto on and pick your schedule: On Login, Hourly, Every 6 Hours, or Daily at 12:00 AM. Settings save automatically.</p>
-                    <div class="flow-badge">✓ Flexible intervals</div>
-                </div>
-
-                <div class="flow-card">
-                    <div class="flow-step-num">03</div>
-                    <h3>Close the App &amp; Relax</h3>
-                    <p>Windows Task Scheduler triggers a silent 1-second native background job at the scheduled time and exits immediately. 0 MB idle RAM.</p>
-                    <div class="flow-badge">✓ True 0 MB Idle RAM</div>
+                <!-- 4-cell Technical Spec Strip -->
+                <div class="spec-strip">
+                    <div class="spec-cell">
+                        <div class="spec-val">0 MB</div>
+                        <div class="spec-note">Idle RAM once the window closes</div>
+                    </div>
+                    <div class="spec-cell">
+                        <div class="spec-val">4 feeds</div>
+                        <div class="spec-note">Bing, Spotlight, Wallhaven, Pexels</div>
+                    </div>
+                    <div class="spec-cell">
+                        <div class="spec-val">Split routing</div>
+                        <div class="spec-note">Separate Desktop &amp; Lock Screen feeds</div>
+                    </div>
+                    <div class="spec-cell">
+                        <div class="spec-val">No admin</div>
+                        <div class="spec-note">Installs cleanly in user AppData</div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Feature Pillars -->
-        <section class="features-section" id="features">
-            <div class="section-header">
-                <h2>Engineered for Performance</h2>
-                <p>Everything you need in a modern wallpaper engine, with none of the background bloat.</p>
-            </div>
+        <!-- Interactive Framed Gallery -->
+        <section class="showcase" id="gallery">
+            <div class="wrap">
+                <div class="showcase-frame" id="carouselContainer">
+                    <div class="showcase-bar">
+                        <div class="showcase-tabs" role="tablist" aria-label="Application screenshots">
+                            <button class="shot-tab active" role="tab" aria-selected="true" onclick="selectSlide(0)">
+                                <span class="num">01</span> Spotlight Gallery
+                            </button>
+                            <button class="shot-tab" role="tab" aria-selected="false" onclick="selectSlide(1)">
+                                <span class="num">02</span> Sources &amp; Schedule
+                            </button>
+                            <button class="shot-tab" role="tab" aria-selected="false" onclick="selectSlide(2)">
+                                <span class="num">03</span> 4K &amp; Fit Styles
+                            </button>
+                            <button class="shot-tab" role="tab" aria-selected="false" onclick="selectSlide(3)">
+                                <span class="num">04</span> Bing Archive
+                            </button>
+                        </div>
 
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">⚡</div>
-                    <h3>0 MB Idle RAM</h3>
-                    <p>Unlike Electron or Web apps that eat 300MB+ in the background, AutoScape leverages Windows Task Scheduler to rotate wallpapers natively. When you close the app, it unloads 100% from memory.</p>
-                </div>
+                        <div class="showcase-nav">
+                            <span class="slide-counter" id="slideCounter">01 / 04</span>
+                            <button class="icon-btn" onclick="prevSlide(true)" aria-label="Previous screenshot">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </button>
+                            <button class="icon-btn" onclick="nextSlide(true)" aria-label="Next screenshot">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">🎯</div>
-                    <h3>Multi-Engine 4K Sourcing</h3>
-                    <p>Switch between Microsoft Bing Daily, Windows Spotlight archives, Wallhaven (Nature/4K), and curated human-free Pexels landscape collections.</p>
-                </div>
+                    <div class="stage">
+                        <div class="stage-track">
+                            <div class="slide active" data-caption="Browse Windows Spotlight collections and apply or save originals in one click.">
+                                <img src="assets/slide-spotlight.png" alt="AutoScape Spotlight Gallery view">
+                            </div>
+                            <div class="slide" data-caption="Route Desktop and Lock Screen to different feeds and set your rotation schedule.">
+                                <img src="assets/slide-schedule.png" alt="AutoScape Wallpaper Sources and Schedule settings">
+                            </div>
+                            <div class="slide" data-caption="Control 4K resolution handling, multi-monitor fit styles, and optional API keys.">
+                                <img src="assets/slide-preferences.png" alt="AutoScape Preferences, 4K Resolution and Fit Styles">
+                            </div>
+                            <div class="slide" data-caption="Jump back into past Microsoft Bing photography by date.">
+                                <img src="assets/slide-search.png" alt="AutoScape Bing Archive Search by Date">
+                            </div>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">🖥️</div>
-                    <h3>Desktop & Lock Screen Isolation</h3>
-                    <p>Route different sources to your Desktop and Lock Screen independently. Choose custom fit styles like Fill, Fit, Stretch, Center, or Span.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">🔒</div>
-                    <h3>Zero Telemetry & Offline First</h3>
-                    <p>Your API keys and preferences are stored locally in standard JSON. No cloud logins, no mandatory analytics, and no third-party tracking.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">🎨</div>
-                    <h3>Windows 11 Fluent UI</h3>
-                    <p>Crafted with reveal lighting, smooth easing transitions, thin auto-hiding scrollbars, and acrylic aesthetics that blend seamlessly into Windows.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">💾</div>
-                    <h3>Full 4K Image Downloader</h3>
-                    <p>Export uncompressed full-resolution original wallpapers directly to your designated folder with full copyright and photographer metadata intact.</p>
+                    <div class="showcase-caption">
+                        <span id="slideCaption">Browse Windows Spotlight collections and apply or save originals in one click.</span>
+                        <span class="kbd-hint">Use ← / → keys</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Comparison Table -->
-        <section class="compare-section" id="compare">
-            <div class="section-header">
-                <h2>AutoScape vs. Other Wallpaper Apps</h2>
-                <p>See why native desktop integration matters.</p>
-            </div>
+        <!-- How It Runs -->
+        <section class="section" id="how">
+            <div class="wrap">
+                <div class="section-head">
+                    <div>
+                        <span class="label">01 / Architecture</span>
+                        <h2>No background daemon.<br>Just Windows Task Scheduler.</h2>
+                    </div>
+                    <p>
+                        A wallpaper switcher has no business idling in your system tray all day. AutoScape configures a standard user-level scheduled task and hands the job over to Windows.
+                    </p>
+                </div>
 
-            <table class="compare-table">
-                <thead>
-                    <tr>
-                        <th>Capability</th>
-                        <th>AutoScape</th>
-                        <th>Web / Electron Utilities</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Idle Memory Usage</strong></td>
-                        <td><span class="badge-good">✓ 0 MB (Task Scheduler)</span></td>
-                        <td><span class="badge-bad">✗ 150 MB - 400 MB permanent</span></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Startup Overhead</strong></td>
-                        <td><span class="badge-good">✓ Instant native WPF</span></td>
-                        <td><span class="badge-bad">✗ Heavy Chromium renderer</span></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Sources</strong></td>
-                        <td><span class="badge-good">✓ Bing + Spotlight + Wallhaven + Pexels</span></td>
-                        <td>Usually only 1 source</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Lock Screen Sync</strong></td>
-                        <td><span class="badge-good">✓ Independent routing</span></td>
-                        <td>Desktop only</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Privacy & Accounts</strong></td>
-                        <td><span class="badge-good">✓ 100% Local / No account</span></td>
-                        <td>Requires login / telemetry</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="steps-ledger">
+                    <div class="step-col">
+                        <span class="step-tag">STEP 01 — ASSIGN</span>
+                        <h3>Pick your feeds</h3>
+                        <p>Choose Bing 4K, Windows Spotlight, Wallhaven Nature, or Pexels. Assign them independently to your Desktop and Lock Screen.</p>
+                    </div>
+                    <div class="step-col">
+                        <span class="step-tag">STEP 02 — SCHEDULE</span>
+                        <h3>Choose a cadence</h3>
+                        <p>Turn Auto on and pick On Login, Hourly, Every 6 Hours, or Daily at midnight. AutoScape registers one clean user task automatically.</p>
+                    </div>
+                    <div class="step-col">
+                        <span class="step-tag">STEP 03 — EXIT</span>
+                        <h3>Close the window</h3>
+                        <p>Quit AutoScape completely. When the clock hits your interval, Windows runs a silent ~1-second update and exits immediately.</p>
+                    </div>
+                </div>
+
+                <div class="lifecycle" aria-label="Execution lifecycle">
+                    <span class="lc-node"><span class="lc-pill zero">0 MB</span> App closed</span>
+                    <span class="lc-arrow">→</span>
+                    <span class="lc-node"><span class="lc-pill">Task Scheduler</span> Fires on schedule</span>
+                    <span class="lc-arrow">→</span>
+                    <span class="lc-node"><span class="lc-pill">~1 sec</span> Fetch &amp; apply image</span>
+                    <span class="lc-arrow">→</span>
+                    <span class="lc-node"><span class="lc-pill zero">0 MB</span> Process exits</span>
+                </div>
+            </div>
         </section>
 
-        <!-- Comprehensive FAQ Section -->
-        <section class="faq-section" id="faq">
-            <div class="section-header">
-                <h2>Frequently Asked Questions</h2>
-                <p>Everything you need to know about AutoScape and how it works on Windows.</p>
-            </div>
+        <!-- Details Grid -->
+        <section class="section" id="features">
+            <div class="wrap">
+                <div class="section-head">
+                    <div>
+                        <span class="label">02 / What's included</span>
+                        <h2>Built for people who check Task Manager.</h2>
+                    </div>
+                    <p>
+                        Plain local config files, full-resolution exports, and native WPF rendering—without accounts, subscriptions, or Electron bloat.
+                    </p>
+                </div>
 
-            <div class="faq-item open">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>How does AutoScape operate with 0 MB idle RAM?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    AutoScape registers a native Windows Scheduled Task via Task Scheduler instead of leaving a memory-heavy app running in the background. When your scheduled time arrives (e.g. Daily or Hourly), Windows silently invokes a 1-second native script, updates your wallpaper, and immediately terminates.
-                </div>
-            </div>
+                <div class="bento-grid">
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        </div>
+                        <h3>True 0 MB idle footprint</h3>
+                        <p>Nothing lingers in RAM after you close the app. Your memory stays free for browsers, games, or builds.</p>
+                    </div>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Can I have different wallpapers on my Desktop and Lock Screen?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    Yes! AutoScape features independent source routing. For example, you can set your Desktop to fetch fresh Wallhaven 4K Nature imagery while your Lock Screen displays the daily Microsoft Bing photography.
-                </div>
-            </div>
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        </div>
+                        <h3>Four 4K wallpaper feeds</h3>
+                        <p>Switch freely between Bing Daily, Windows Spotlight archives, keyless Wallhaven SFW Nature, and curated Pexels landscapes.</p>
+                    </div>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Is the PowerShell one-liner safe to run?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    Yes! The one-liner (<code>irm ... | iex</code>) downloads <code>install.ps1</code> directly from our open-source GitHub repository, extracts it to your local AppData folder, and creates standard shortcuts. There is no obfuscated code, and everything is visible in public GitHub commits.
-                </div>
-            </div>
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </div>
+                        <h3>Independent Desktop &amp; Lock Screen</h3>
+                        <p>Send Wallhaven to your Desktop and Bing to your Lock Screen, with native Fill, Fit, Stretch, Center, or multi-monitor Span.</p>
+                    </div>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Do I need API keys for Wallhaven or Pexels?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    Wallhaven works completely keyless out-of-the-box for all SFW Nature wallpapers. Pexels offers a free API key with generous limits on their website, which you can paste directly into AutoScape's Preferences popup.
-                </div>
-            </div>
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        </div>
+                        <h3>Local JSON, zero telemetry</h3>
+                        <p>Preferences and optional API keys live in a plain JSON file on disk. No login wall, no analytics, no background phone-home.</p>
+                    </div>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Does it support multiple monitors?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    Yes, AutoScape supports all native Windows wallpaper fit styles including Fit, Fill, Stretch, Center, and Span across multi-monitor setups.
-                </div>
-            </div>
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </div>
+                        <h3>Uncompressed 4K downloads</h3>
+                        <p>Save any wallpaper you want to keep directly to your chosen folder at full resolution with photographer and copyright details preserved.</p>
+                    </div>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Does AutoScape require administrative privileges?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    No. AutoScape is designed to operate entirely in standard user space (%LOCALAPPDATA%). Changing desktop wallpapers and creating scheduled tasks for the current user requires no administrator rights or UAC prompts.
+                    <div class="bento-item">
+                        <div class="bento-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="8"></rect><rect x="3" y="13" width="8" height="8"></rect><rect x="13" y="13" width="8" height="8"></rect></svg>
+                        </div>
+                        <h3>Native Windows UI</h3>
+                        <p>Built on WPF for Windows 10 and 11 (64-bit). Launches immediately and installs under <code>%LOCALAPPDATA%</code> without UAC prompts.</p>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>Will it work on both Windows 10 and Windows 11?</span>
-                    <span class="faq-icon">+</span>
+        <!-- Comparison -->
+        <section class="section" id="compare">
+            <div class="wrap">
+                <div class="section-head">
+                    <div>
+                        <span class="label">03 / Overhead</span>
+                        <h2>Native vs. Electron utilities.</h2>
+                    </div>
+                    <p>
+                        A quick side-by-side on why skipping a bundled browser runtime makes a noticeable difference for a small desktop tool.
+                    </p>
                 </div>
-                <div class="faq-answer">
-                    Yes. AutoScape is fully compatible with 64-bit editions of Windows 10 and Windows 11 using built-in Windows PowerShell 5.1 and .NET framework components.
+
+                <div class="compare-wrap">
+                    <table class="compare-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>AutoScape</th>
+                                <th>Web / Electron wallpaper apps</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Idle RAM</td>
+                                <td><span class="metric-good">0 MB</span> — Windows Task Scheduler</td>
+                                <td>150–400 MB resident process</td>
+                            </tr>
+                            <tr>
+                                <td>Runtime</td>
+                                <td>Native WPF on built-in Windows components</td>
+                                <td>Bundled Chromium renderer</td>
+                            </tr>
+                            <tr>
+                                <td>Sources</td>
+                                <td>Bing, Spotlight, Wallhaven, Pexels</td>
+                                <td>Usually locked to a single feed</td>
+                            </tr>
+                            <tr>
+                                <td>Lock Screen</td>
+                                <td>Independent feed routing</td>
+                                <td>Desktop wallpaper only</td>
+                            </tr>
+                            <tr>
+                                <td>Accounts &amp; data</td>
+                                <td>Local JSON, no sign-in, no telemetry</td>
+                                <td>Often requires login or analytics</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </section>
 
-            <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>How do I uninstall or remove the auto-rotation task?</span>
-                    <span class="faq-icon">+</span>
-                </div>
-                <div class="faq-answer">
-                    Simply open AutoScape and toggle the <strong>Auto</strong> switch to <strong>OFF</strong>. This cleanly deletes the Windows Scheduled Task. To remove the files, delete the <code>%LOCALAPPDATA%\AutoScape</code> folder.
+        <!-- FAQ -->
+        <section class="section" id="faq">
+            <div class="wrap">
+                <div class="faq-layout">
+                    <div class="faq-sticky">
+                        <span class="label">04 / FAQ</span>
+                        <h2>Common questions.</h2>
+                        <p>Everything is open source under the MIT license. You can read the install script and source code before running anything.</p>
+                        <a href="https://github.com/Hamisoptimistic/AutoScape/issues" target="_blank" rel="noopener">Open an issue on GitHub →</a>
+                    </div>
+
+                    <div class="faq-list">
+                        <div class="faq-row open">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>How does it really use 0 MB of idle RAM?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Instead of staying open in your system tray, AutoScape creates a native Windows Scheduled Task. When your chosen time hits (Hourly, Daily, etc.), Windows silently runs a ~1-second update job, swaps the wallpaper, and terminates the process.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>Can Desktop and Lock Screen use different sources?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Yes. You can point them at separate feeds—for example, Wallhaven 4K Nature on your Desktop and daily Microsoft Bing photography on your Lock Screen.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>What does the PowerShell one-liner actually do?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Running <code>irm ... | iex</code> fetches <code>install.ps1</code> straight from the public GitHub repository, unpacks AutoScape into your local AppData directory, and adds standard shortcuts. There is no obfuscation—you can inspect the script in the repo before running it.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>Do I need API keys for Wallhaven or Pexels?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Wallhaven SFW Nature works out of the box with no key. If you want Pexels as well, you can grab a free API key from their site and paste it into AutoScape's Preferences window.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>Does it handle multi-monitor setups?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Yes. All native Windows wallpaper fit modes are supported: Fill, Fit, Stretch, Center, and Span across multiple displays.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>Does it ask for administrator rights?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                No. Everything runs in standard user space inside <code>%LOCALAPPDATA%</code>. Updating your wallpaper and creating a per-user scheduled task requires zero UAC prompts.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>Does it work on both Windows 10 and Windows 11?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Yes—any 64-bit edition of Windows 10 or Windows 11, relying on built-in Windows PowerShell 5.1 and .NET components.
+                            </div>
+                        </div>
+
+                        <div class="faq-row">
+                            <button class="faq-trigger" onclick="toggleFaq(this)">
+                                <span>How do I uninstall it cleanly?</span>
+                                <span class="faq-plus">+</span>
+                            </button>
+                            <div class="faq-body">
+                                Open AutoScape and flip the <strong>Auto</strong> switch to <strong>OFF</strong> so it removes its Scheduled Task cleanly, then delete the <code>%LOCALAPPDATA%\AutoScape</code> folder.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- Footer -->
     <footer>
-        <div class="footer-container">
+        <div class="wrap footer-inner">
             <div>
-                <strong>AutoScape for Windows</strong> — Open-source native wallpaper manager.
+                <strong style="color: var(--ink);">AutoScape</strong> — Open-source wallpaper utility for Windows.
             </div>
             <div class="footer-links">
-                <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank">GitHub Repository</a>
-                <a href="https://github.com/Hamisoptimistic/AutoScape/releases" target="_blank">Releases</a>
-                <a href="https://github.com/Hamisoptimistic/AutoScape/blob/main/LICENSE" target="_blank">MIT License</a>
+                <a href="https://github.com/Hamisoptimistic/AutoScape" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/Hamisoptimistic/AutoScape/releases" target="_blank" rel="noopener">Releases</a>
+                <a href="https://github.com/Hamisoptimistic/AutoScape/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+                <a href="#" class="mono" style="font-size: 12px;">↑ Top</a>
             </div>
         </div>
     </footer>
 
-    <!-- Interactive Carousel & Utility Script -->
     <script>
-        // ---------------- Theme Switcher ----------------
+        // Theme switcher
         function toggleTheme() {
-            var currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            var newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            try {
-                localStorage.setItem('autoscape-theme-v2', newTheme);
-            } catch (e) {}
+            var root = document.documentElement;
+            var next = (root.getAttribute('data-theme') || 'light') === 'light' ? 'dark' : 'light';
+            root.setAttribute('data-theme', next);
+            try { localStorage.setItem('autoscape-theme-v2', next); } catch (e) {}
         }
 
-        // ---------------- Carousel Logic ----------------
-        let currentSlide = 0;
-        const slides = document.querySelectorAll('.carousel-slide');
-        const dots = document.querySelectorAll('.carousel-dot');
-        const totalSlides = slides.length;
-        let autoPlayTimer = null;
+        // Screenshot gallery switcher
+        var currentSlide = 0;
+        var slides = document.querySelectorAll('.slide');
+        var tabs = document.querySelectorAll('.shot-tab');
+        var counterEl = document.getElementById('slideCounter');
+        var captionEl = document.getElementById('slideCaption');
+        var autoTimer = null;
 
-        function goToSlide(index) {
+        function renderSlide(index) {
             slides[currentSlide].classList.remove('active');
-            dots[currentSlide].classList.remove('active');
-            
-            currentSlide = (index + totalSlides) % totalSlides;
-            
+            tabs[currentSlide].classList.remove('active');
+            tabs[currentSlide].setAttribute('aria-selected', 'false');
+
+            currentSlide = (index + slides.length) % slides.length;
+
             slides[currentSlide].classList.add('active');
-            dots[currentSlide].classList.add('active');
+            tabs[currentSlide].classList.add('active');
+            tabs[currentSlide].setAttribute('aria-selected', 'true');
+
+            counterEl.textContent = '0' + (currentSlide + 1) + ' / 0' + slides.length;
+            captionEl.textContent = slides[currentSlide].getAttribute('data-caption') || '';
         }
 
-        function nextSlide() {
-            goToSlide(currentSlide + 1);
+        function selectSlide(index) {
+            stopAuto();
+            renderSlide(index);
         }
 
-        function prevSlide() {
-            goToSlide(currentSlide - 1);
+        function nextSlide(userAction) {
+            if (userAction) stopAuto();
+            renderSlide(currentSlide + 1);
         }
 
-        function startAutoPlay() {
-            stopAutoPlay();
-            autoPlayTimer = setInterval(nextSlide, 4500);
+        function prevSlide(userAction) {
+            if (userAction) stopAuto();
+            renderSlide(currentSlide - 1);
         }
 
-        function stopAutoPlay() {
-            if (autoPlayTimer) {
-                clearInterval(autoPlayTimer);
-                autoPlayTimer = null;
+        function startAuto() {
+            stopAuto();
+            autoTimer = setInterval(function() { renderSlide(currentSlide + 1); }, 5500);
+        }
+
+        function stopAuto() {
+            if (autoTimer) {
+                clearInterval(autoTimer);
+                autoTimer = null;
             }
         }
 
-        const container = document.getElementById('carouselContainer');
+        var container = document.getElementById('carouselContainer');
         if (container) {
-            container.addEventListener('mouseenter', stopAutoPlay);
-            container.addEventListener('mouseleave', startAutoPlay);
-            
-            // Touch Swipe Support
-            let startX = 0;
-            container.addEventListener('touchstart', (e) => {
+            container.addEventListener('mouseenter', stopAuto);
+            container.addEventListener('mouseleave', startAuto);
+
+            var startX = 0;
+            container.addEventListener('touchstart', function(e) {
                 startX = e.changedTouches[0].screenX;
-                stopAutoPlay();
+                stopAuto();
             }, { passive: true });
 
-            container.addEventListener('touchend', (e) => {
-                const diff = e.changedTouches[0].screenX - startX;
+            container.addEventListener('touchend', function(e) {
+                var diff = e.changedTouches[0].screenX - startX;
                 if (Math.abs(diff) > 40) {
-                    if (diff < 0) nextSlide();
-                    else prevSlide();
+                    diff < 0 ? nextSlide(true) : prevSlide(true);
                 }
-                startAutoPlay();
             }, { passive: true });
         }
 
-        // Keyboard Arrow Navigation
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') prevSlide();
-            if (e.key === 'ArrowRight') nextSlide();
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') prevSlide(true);
+            if (e.key === 'ArrowRight') nextSlide(true);
         });
 
-        // Initialize Carousel
-        startAutoPlay();
+        startAuto();
 
-        // ---------------- FAQ Accordion ----------------
-        function toggleFaq(element) {
-            const item = element.parentElement;
-            item.classList.toggle('open');
+        // FAQ accordion
+        function toggleFaq(btn) {
+            btn.parentElement.classList.toggle('open');
         }
 
-        // ---------------- Terminal Copy ----------------
+        // Copy PowerShell command
         function copyCommand() {
-            const cmd = document.getElementById('psCmd').innerText;
-            navigator.clipboard.writeText(cmd).then(() => {
-                const btn = document.getElementById('copyText');
-                btn.innerText = "Copied! ✓";
-                setTimeout(() => {
-                    btn.innerText = "Copy";
-                }, 2500);
+            var cmd = document.getElementById('psCmd').textContent;
+            var btn = document.getElementById('copyBtn');
+            navigator.clipboard.writeText(cmd).then(function() {
+                btn.textContent = 'Copied';
+                setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
             });
         }
     </script>
