@@ -125,17 +125,10 @@ Most wallpaper utilities wrap web frameworks like Electron or Chromium, permanen
 
 ## Getting Started
 
-### ⚡ Quick Install (PowerShell)
-Paste this into Windows PowerShell to install and launch AutoScape instantly:
-
-```powershell
-irm https://autoscape.pages.dev/install.ps1 | iex
-```
-
----
-
-### Manual Download
-Download **[`AutoScape-Setup.exe`](https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe)** and double-click to install. Zero admin permissions required.
+### ⚡ Installation
+Download **[`AutoScape-Setup.exe`](https://github.com/Hamisoptimistic/AutoScape/releases/latest/download/AutoScape-Setup.exe)** and double-click to install. Zero administrator permissions required.
+- Installs cleanly into user `AppData`.
+- Automatically sets up Desktop and Start Menu shortcuts.
 
 ### 2. Automatic Updates
 Inside the application, turn the **Auto** toggle to **ON**:
