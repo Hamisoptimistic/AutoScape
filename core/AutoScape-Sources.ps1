@@ -101,12 +101,12 @@ function Get-WallhavenImages {
     # rather than a loose full-text match on the word "nature".
     $tagQuery = [System.Uri]::EscapeDataString('+nature')
 
-    # Standard monitors: 16:9 and 16:10 at 1080p and higher (1080p, 1440p, 4K+).
+    # Standard monitors: 16:9 and 16:10 at 2K and higher (1440p, 4K+). Filters out low-res/compressed 1080p.
     # Generates a random seed so results are uniquely shuffled on every call.
     $seedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     $randomSeed = -join (1..6 | ForEach-Object { $seedChars[(Get-Random -Maximum $seedChars.Length)] })
 
-    $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=1920x1080&ratios=16x9,16x10&seed=$randomSeed"
+    $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=2560x1440&ratios=16x9,16x10&seed=$randomSeed"
     if ($ApiKey) {
         $escapedKey = [System.Uri]::EscapeDataString($ApiKey)
         $uri += "&apikey=$escapedKey"
@@ -1271,12 +1271,12 @@ namespace AutoScapeLocal
             $whShowCount = 24
             $tagQuery = [System.Uri]::EscapeDataString('+nature')
 
-            # Standard monitors: 16:9 and 16:10 at 1080p and higher (1080p, 1440p, 4K+).
+            # Standard monitors: 16:9 and 16:10 at 2K and higher (1440p, 4K+). Filters out low-res/compressed 1080p.
             # Generates a random seed so results are uniquely shuffled on every gallery refresh.
             $seedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
             $randomSeed = -join (1..6 | ForEach-Object { $seedChars[(Get-Random -Maximum $seedChars.Length)] })
 
-            $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=1920x1080&ratios=16x9,16x10&seed=$randomSeed"
+            $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=2560x1440&ratios=16x9,16x10&seed=$randomSeed"
             if ($WallhavenKey) {
                 $escapedKey = [System.Uri]::EscapeDataString($WallhavenKey)
                 $uri += "&apikey=$escapedKey"
