@@ -24,7 +24,7 @@
 
 <br />
 
-<img src="assets/AutoScape-Wallhaven-Preview.jpg" width="100%" alt="AutoScape Application Preview" />
+<img src="assets/AutoScape-Wallhaven-Grid.jpg" width="100%" alt="AutoScape Application Preview" />
 
 </div>
 
