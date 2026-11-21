@@ -1,7 +1,7 @@
 $script:activeGuideDialog = $null
 $script:isClosingGuideDialog = $false
 
-function Close-UserGuideDialog {
+function script:Close-UserGuideDialog {
     if ($script:isClosingGuideDialog) { return }
     if ($script:activeModalControl -and $script:activeModalKind -eq 'Guide') {
         $script:isClosingGuideDialog = $true
@@ -10,7 +10,7 @@ function Close-UserGuideDialog {
     }
 }
 
-function Show-UserGuideDialog {
+function script:Show-UserGuideDialog {
     if ($script:activeModalControl -and $script:activeModalKind -eq 'Guide' -and -not $script:activeModalClosing) {
         Close-UserGuideDialog
         return

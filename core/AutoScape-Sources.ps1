@@ -101,52 +101,32 @@ function Get-WallhavenImages {
     # rather than a loose full-text match on the word "nature".
     $tagQuery = [System.Uri]::EscapeDataString('+nature')
 
-    # Wallpapers must be at least 4K. If that comes back too thin (fewer
-    # than $Count results), fall back to at-least-1440p. We run both queries
-    # concurrently in parallel via async tasks so there is zero extra wait for the fallback!
-    $uri4k = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=3840x2160&ratios=16x9"
-    $uri2k = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=2560x1440&ratios=16x9"
+    # Standard monitors: 16:9 and 16:10 at 1080p and higher (1080p, 1440p, 4K+).
+    # Generates a random seed so results are uniquely shuffled on every call.
+    $seedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    $randomSeed = -join (1..6 | ForEach-Object { $seedChars[(Get-Random -Maximum $seedChars.Length)] })
+
+    $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=1920x1080&ratios=16x9,16x10&seed=$randomSeed"
     if ($ApiKey) {
         $escapedKey = [System.Uri]::EscapeDataString($ApiKey)
-        $uri4k += "&apikey=$escapedKey"
-        $uri2k += "&apikey=$escapedKey"
+        $uri += "&apikey=$escapedKey"
     }
 
-    $swc1 = New-Object System.Net.WebClient
-    $swc2 = New-Object System.Net.WebClient
-    $swc1.Encoding = [System.Text.Encoding]::UTF8
-    $swc2.Encoding = [System.Text.Encoding]::UTF8
-    $swc1.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-    $swc2.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    $swc = New-Object System.Net.WebClient
+    $swc.Encoding = [System.Text.Encoding]::UTF8
+    $swc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-    $task4k = $swc1.DownloadStringTaskAsync($uri4k)
-    $task2k = $swc2.DownloadStringTaskAsync($uri2k)
+    $items = @()
     try {
-        [void][System.Threading.Tasks.Task]::WaitAll(@($task4k, $task2k))
+        $jsonStr = $swc.DownloadString($uri)
+        if ($jsonStr) {
+            $parsed = ConvertFrom-Json -InputObject $jsonStr
+            if ($parsed.data) { $items = @($parsed.data) }
+        }
     }
     catch {}
-
-    $items4k = if ($task4k.Status -eq 'RanToCompletion' -and $task4k.Result) {
-        try { @((ConvertFrom-Json -InputObject $task4k.Result).data) } catch { @() }
-    }
-    else { @() }
-
-    $items2k = if ($task2k.Status -eq 'RanToCompletion' -and $task2k.Result) {
-        try { @((ConvertFrom-Json -InputObject $task2k.Result).data) } catch { @() }
-    }
-    else { @() }
-
-    try { $swc1.Dispose() } catch {}
-    try { $swc2.Dispose() } catch {}
-
-    $items = if ($items4k.Count -ge $Count) {
-        $items4k
-    }
-    elseif ($items2k.Count -gt $items4k.Count) {
-        $items2k
-    }
-    else {
-        $items4k
+    finally {
+        try { $swc.Dispose() } catch {}
     }
 
     $results = @()
@@ -1291,53 +1271,33 @@ namespace AutoScapeLocal
             $whShowCount = 24
             $tagQuery = [System.Uri]::EscapeDataString('+nature')
 
-            # Wallpapers must be at least 4K. If that comes back too
-            # thin (fewer than $whFetchCount results), fall back to
-            # at-least-1440p. Both searches are executed concurrently in
-            # parallel so there is zero extra wait for the fallback query!
-            $uri4k = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=3840x2160&ratios=16x9"
-            $uri2k = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=2560x1440&ratios=16x9"
+            # Standard monitors: 16:9 and 16:10 at 1080p and higher (1080p, 1440p, 4K+).
+            # Generates a random seed so results are uniquely shuffled on every gallery refresh.
+            $seedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+            $randomSeed = -join (1..6 | ForEach-Object { $seedChars[(Get-Random -Maximum $seedChars.Length)] })
+
+            $uri = "https://wallhaven.cc/api/v1/search?q=$tagQuery&categories=100&purity=100&sorting=random&atleast=1920x1080&ratios=16x9,16x10&seed=$randomSeed"
             if ($WallhavenKey) {
                 $escapedKey = [System.Uri]::EscapeDataString($WallhavenKey)
-                $uri4k += "&apikey=$escapedKey"
-                $uri2k += "&apikey=$escapedKey"
+                $uri += "&apikey=$escapedKey"
             }
 
-            $swc1 = New-Object System.Net.WebClient
-            $swc2 = New-Object System.Net.WebClient
-            $swc1.Encoding = [System.Text.Encoding]::UTF8
-            $swc2.Encoding = [System.Text.Encoding]::UTF8
-            $swc1.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            $swc2.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            $swc = New-Object System.Net.WebClient
+            $swc.Encoding = [System.Text.Encoding]::UTF8
+            $swc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-            $task4k = $swc1.DownloadStringTaskAsync($uri4k)
-            $task2k = $swc2.DownloadStringTaskAsync($uri2k)
+            $items = @()
             try {
-                [void][System.Threading.Tasks.Task]::WaitAll(@($task4k, $task2k))
+                $task = $swc.DownloadStringTaskAsync($uri)
+                [void]$task.Wait(10000)
+                if ($task.Status -eq 'RanToCompletion' -and $task.Result) {
+                    $jsonRes = ConvertFrom-Json -InputObject $task.Result
+                    if ($jsonRes.data) { $items = @($jsonRes.data) }
+                }
             }
             catch {}
-
-            $items4k = if ($task4k.Status -eq 'RanToCompletion' -and $task4k.Result) {
-                try { @((ConvertFrom-Json -InputObject $task4k.Result).data) } catch { @() }
-            }
-            else { @() }
-
-            $items2k = if ($task2k.Status -eq 'RanToCompletion' -and $task2k.Result) {
-                try { @((ConvertFrom-Json -InputObject $task2k.Result).data) } catch { @() }
-            }
-            else { @() }
-
-            try { $swc1.Dispose() } catch {}
-            try { $swc2.Dispose() } catch {}
-
-            $items = if ($items4k.Count -ge $whFetchCount) {
-                $items4k
-            }
-            elseif ($items2k.Count -gt $items4k.Count) {
-                $items2k
-            }
-            else {
-                $items4k
+            finally {
+                try { $swc.Dispose() } catch {}
             }
             $items = @($items | Select-Object -First $whFetchCount)
 

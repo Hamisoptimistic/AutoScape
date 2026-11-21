@@ -16,7 +16,7 @@ $script:updateDlTimer = $null
 # to this same file via its own copy of this function, since it's a plain
 # text file append and needs no cross-process coordination.
 $script:updateLogPath = Join-Path $env:LOCALAPPDATA 'AutoScape\logs\update.log'
-function Write-UpdateLog {
+function script:Write-UpdateLog {
     param([string]$Message)
     try {
         $logDir = Split-Path -Parent $script:updateLogPath
@@ -28,7 +28,7 @@ function Write-UpdateLog {
     catch {}
 }
 
-function Start-VerifiedUpdate {
+function script:Start-VerifiedUpdate {
     if ($script:updateContext -or $script:updateDlContext) { return }
     if ($CheckUpdateBtn) { $CheckUpdateBtn.IsEnabled = $false }
     Set-TransientStatus -Message 'Checking for updates...' -Brush $statusDefaultBrush -Seconds 8
@@ -197,7 +197,7 @@ function Start-VerifiedUpdate {
     $script:updateTimer.Start()
 }
 
-function Start-VerifiedUpdateDownloadAsync {
+function script:Start-VerifiedUpdateDownloadAsync {
     param(
         $Release,
         [string]$LatestVersionStr
@@ -571,7 +571,7 @@ finally {
 # Invoked by the "Check for updates" button inside the User Guide modal's footer.
 # Kept as a named function (rather than an inline Add_Click) since that button
 # is rebuilt fresh each time the modal opens.
-function Invoke-CheckForUpdatesClick {
+function script:Invoke-CheckForUpdatesClick {
     try {
         Start-VerifiedUpdate
     }

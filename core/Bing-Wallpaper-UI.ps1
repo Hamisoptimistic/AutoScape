@@ -198,14 +198,22 @@ function Write-NativeLoadLog {
 }
 
 # --- Auto-Updater Subsystem (Lazy-Loaded) -------------------------------
+# NOTE: Library files define their functions as script: scoped so dot-sourcing
+# from inside this function persists after the function returns. Dot-sourcing
+# a plain `function Foo` here would create Foo only in this function's local
+# scope, which is destroyed on return (causing CommandNotFoundException later).
 function Ensure-AutoUpdater {
     if (-not (Get-Command 'Start-VerifiedUpdate' -ErrorAction SilentlyContinue)) {
-        $updaterModulePath = Join-Path $PSScriptRoot 'AutoScape-Updater.ps1'
-        if (-not (Test-Path -LiteralPath $updaterModulePath)) {
-            $updaterModulePath = Join-Path $PSScriptRoot 'core\AutoScape-Updater.ps1'
-        }
-        if (Test-Path -LiteralPath $updaterModulePath) {
+        $candidates = @(
+            (Join-Path $PSScriptRoot 'AutoScape-Updater.ps1'),
+            (Join-Path $PSScriptRoot 'core\AutoScape-Updater.ps1')
+        )
+        $updaterModulePath = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if ($updaterModulePath) {
             . $updaterModulePath
+        }
+        if (-not (Get-Command 'Start-VerifiedUpdate' -ErrorAction SilentlyContinue)) {
+            throw "AutoScape-Updater.ps1 could not be loaded. Tried: $($candidates -join '; ')"
         }
     }
 }
@@ -474,14 +482,47 @@ public static class AutoScapeChromeHelper
 }
 '@
 
-    try {
-        Add-Type -TypeDefinition $script:nativeCsSourceCore -ReferencedAssemblies WindowsBase, PresentationCore, PresentationFramework -Language CSharp -ErrorAction Stop
-        Write-NativeLoadLog "OK: compiled core native helpers in-memory (no DLL file written)"
+    # Rarely (a few times a month), the .dll csc.exe writes to %TEMP% is locked
+    # or swept away in the few milliseconds between csc.exe exiting and
+    # PowerShell loading it - reported as "Could not find file '...Temp\xxxxxxxx.dll'".
+    # That is a transient environmental race (a scanner/indexer/cleanup touching
+    # the temp folder), not a real compile error: a fresh compile moments later
+    # almost always succeeds. So retry with fresh temp files before troubling
+    # the user with a dialog.
+    $transientCompileFailure = 'Could not find file|being used by another process|process cannot access the file|Access is denied'
+    $coreCompileError = $null
+    for ($compileAttempt = 1; $compileAttempt -le 3; $compileAttempt++) {
+        try {
+            Add-Type -TypeDefinition $script:nativeCsSourceCore -ReferencedAssemblies WindowsBase, PresentationCore, PresentationFramework -Language CSharp -ErrorAction Stop
+            $coreCompileError = $null
+            if ($compileAttempt -eq 1) {
+                Write-NativeLoadLog "OK: compiled core native helpers in-memory (no DLL file written)"
+            }
+            else {
+                Write-NativeLoadLog "OK: compiled core native helpers in-memory after $compileAttempt attempt(s) (transient failure healed by retry)"
+            }
+            break
+        }
+        catch {
+            $coreCompileError = $_.Exception
+            Write-NativeLoadLog "FAIL: core in-memory compile attempt $compileAttempt/3 failed: $($_.Exception.Message)"
+            if ('BingWallpaperNative' -as [type]) {
+                # The types actually made it in despite the error - treat as loaded.
+                $coreCompileError = $null
+                break
+            }
+            if ($_.Exception.Message -notmatch $transientCompileFailure) {
+                # A real C# compile error - retrying cannot help.
+                break
+            }
+            if ($compileAttempt -lt 3) {
+                Start-Sleep -Milliseconds (300 * $compileAttempt)
+            }
+        }
     }
-    catch {
-        Write-NativeLoadLog "FAIL: core in-memory compile failed: $($_.Exception.Message)"
+    if ($coreCompileError) {
         Show-AppErrorDialog `
-            -Message "Native helper compilation failed. AutoScape will not work correctly.`n`n$($_.Exception.Message)`n`nThis is often caused by antivirus/EDR software blocking runtime C# compilation (csc.exe). Check that AutoScape / csc.exe isn't being blocked, then restart the app." `
+            -Message "Native helper compilation failed. AutoScape will not work correctly.`n`n$($coreCompileError.Message)`n`nThis is often caused by antivirus/EDR software blocking runtime C# compilation (csc.exe). Check that AutoScape / csc.exe isn't being blocked, then restart the app." `
             -Title "AutoScape: native compile failed"
     }
     Write-TimingLog "SCRIPT: core native C# helpers compiled ($($script:startStopwatch.ElapsedMilliseconds)ms since script start)"
@@ -1144,15 +1185,33 @@ function Start-DeferredNativeExtraCompile {
     $ps = [powershell]::Create()
     [void]$ps.AddScript({
             param([string]$SourceExtra)
-            try {
-                Add-Type -TypeDefinition $SourceExtra -ReferencedAssemblies @(
-                    'PresentationCore', 'PresentationFramework', 'WindowsBase', 'System.Xaml', 'System.Net.Http'
-                ) -Language CSharp -ErrorAction Stop
-                return @{ Success = $true; Error = $null }
+            # Same transient %TEMP% file-loss race as the core compile (csc.exe
+            # output locked/swept away between write and load) - retry a couple
+            # of times with fresh temp files before reporting a real failure.
+            # Genuine C# compile errors are still reported immediately.
+            $transientCompileFailure = 'Could not find file|being used by another process|process cannot access the file|Access is denied'
+            $lastError = $null
+            for ($compileAttempt = 1; $compileAttempt -le 3; $compileAttempt++) {
+                try {
+                    Add-Type -TypeDefinition $SourceExtra -ReferencedAssemblies @(
+                        'PresentationCore', 'PresentationFramework', 'WindowsBase', 'System.Xaml', 'System.Net.Http'
+                    ) -Language CSharp -ErrorAction Stop
+                    return @{ Success = $true; Error = $null }
+                }
+                catch {
+                    $lastError = $_.Exception.Message
+                    if ('BingWallpaperNativeExtra' -as [type]) {
+                        return @{ Success = $true; Error = $null }
+                    }
+                    if ($_.Exception.Message -notmatch $transientCompileFailure) {
+                        break
+                    }
+                    if ($compileAttempt -lt 3) {
+                        Start-Sleep -Milliseconds (300 * $compileAttempt)
+                    }
+                }
             }
-            catch {
-                return @{ Success = $false; Error = $_.Exception.Message }
-            }
+            return @{ Success = $false; Error = $lastError }
         }).AddArgument($script:nativeCsSourceExtra)
 
     $asyncOp = $ps.BeginInvoke()
@@ -1818,7 +1877,14 @@ if ($AutoApply) {
                 }
                 'Wallhaven' {
                     $wallhavenKey = if ($savedSettings -and $savedSettings.WallhavenApiKey) { [string]$savedSettings.WallhavenApiKey } else { '' }
-                    $images = Get-WallhavenImages -Count 1 -ApiKey $wallhavenKey
+                    $images = Get-WallhavenImages -Count 5 -ApiKey $wallhavenKey
+                    if ($images -and $images.Count -gt 0) {
+                        $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
+                        $chosen = $images | Where-Object { [string]$_.urlbase -ne $lastAppliedId } | Select-Object -First 1
+                        if (-not $chosen) { $chosen = $images[0] }
+                        $images = @($chosen)
+                        $script:appliedWallpaperId = [string]$chosen.urlbase
+                    }
                 }
                 'Pexels' {
                     $pexelsKey = if ($savedSettings -and $savedSettings.PexelsApiKey) { [string]$savedSettings.PexelsApiKey } else { '' }
@@ -7825,14 +7891,20 @@ $window.Add_Loaded({ Update-ToolbarCompactState })
 $GalleryPanel.Add_SizeChanged({ Update-GalleryViewportHeight })
 
 # --- User Guide & Shortcuts Modal (Lazy-Loaded) ------------------------
+# NOTE: See Ensure-AutoUpdater: library functions are script: scoped so they
+# survive dot-sourcing from inside this function scope.
 function Ensure-UserGuideModal {
     if (-not (Get-Command 'Show-UserGuideDialog' -ErrorAction SilentlyContinue)) {
-        $guideModalPath = Join-Path $PSScriptRoot 'AutoScape-UserGuideModal.ps1'
-        if (-not (Test-Path -LiteralPath $guideModalPath)) {
-            $guideModalPath = Join-Path $PSScriptRoot 'core\AutoScape-UserGuideModal.ps1'
-        }
-        if (Test-Path -LiteralPath $guideModalPath) {
+        $candidates = @(
+            (Join-Path $PSScriptRoot 'AutoScape-UserGuideModal.ps1'),
+            (Join-Path $PSScriptRoot 'core\AutoScape-UserGuideModal.ps1')
+        )
+        $guideModalPath = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if ($guideModalPath) {
             . $guideModalPath
+        }
+        if (-not (Get-Command 'Show-UserGuideDialog' -ErrorAction SilentlyContinue)) {
+            throw "AutoScape-UserGuideModal.ps1 could not be loaded. Tried: $($candidates -join '; ')"
         }
     }
 }
@@ -7868,7 +7940,13 @@ $window.Add_PreviewKeyDown({
         if ($e.Key -eq [System.Windows.Input.Key]::Escape) {
             if ($script:activeGuideDialog -and $script:activeGuideDialog.IsVisible) {
                 $e.Handled = $true
-                Close-UserGuideDialog
+                if (Get-Command 'Close-UserGuideDialog' -ErrorAction SilentlyContinue) {
+                    Close-UserGuideDialog
+                }
+                else {
+                    Close-InWindowModal
+                    $script:activeGuideDialog = $null
+                }
             }
         }
         elseif ($e.Key -eq [System.Windows.Input.Key]::F5) {
