@@ -1,7 +1,7 @@
 # =====================================================================
-# AutoScape 2.0 Web Installer & Bootstrapper (GitHub Pages Edition)
+# AutoScape 2.0 Web Installer & Bootstrapper (Cloudflare Edition)
 # Run in PowerShell:
-#   irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex
+#   irm https://autoscape.pages.dev/install.ps1 | iex
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'

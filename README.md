@@ -129,7 +129,7 @@ Most wallpaper utilities wrap web frameworks like Electron or Chromium, permanen
 Paste this into Windows PowerShell to install and launch AutoScape instantly:
 
 ```powershell
-irm https://hamisoptimistic.github.io/AutoScape/install.ps1 | iex
+irm https://autoscape.pages.dev/install.ps1 | iex
 ```
 
 ---
