@@ -24,7 +24,7 @@
 
 <br />
 
-<img src="assets/Preview.jpg" width="100%" alt="AutoScape Application Preview" />
+<img src="assets/AutoScape-Preview.jpg" width="100%" alt="AutoScape Application Preview" />
 
 </div>
 
