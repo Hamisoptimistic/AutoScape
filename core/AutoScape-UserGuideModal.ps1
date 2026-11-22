@@ -30,20 +30,28 @@ function script:Show-UserGuideDialog {
                 $cleanDate = if ($latest.copyright) { [System.Security.SecurityElement]::Escape($latest.copyright) } else { "Today's Wallpaper" }
             }
             $safeName = $latest.urlbase -replace '[^a-zA-Z0-9]', ''
-            $tPath = Join-Path $env:LOCALAPPDATA "AutoScape\cache\Thumbnails\${safeName}_thumb.jpg"
-            if (-not (Test-Path -LiteralPath $tPath)) {
-                $legacyTPath = Join-Path $env:LOCALAPPDATA "BingWallpaper\Cache\Thumbnails\${safeName}_thumb.jpg"
-                if (Test-Path -LiteralPath $legacyTPath) { $tPath = $legacyTPath }
+            $thumbBase = Join-Path $env:LOCALAPPDATA 'AutoScape\cache\Thumbnails'
+            $candidates = @(
+                (Join-Path $thumbBase "${safeName}_thumb.jpg"),
+                (Join-Path $thumbBase "$($latest.source)\${safeName}_thumb.jpg"),
+                (Join-Path $env:LOCALAPPDATA "BingWallpaper\Cache\Thumbnails\${safeName}_thumb.jpg")
+            )
+            $tPath = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+            if (-not $tPath -and (Test-Path -LiteralPath $thumbBase)) {
+                $found = Get-ChildItem -LiteralPath $thumbBase -Filter "${safeName}_thumb.jpg" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($found) { $tPath = $found.FullName }
             }
-            if (Test-Path -LiteralPath $tPath) {
+            if ($tPath) {
                 $thumbPath = (Resolve-Path -LiteralPath $tPath).Path
             }
         }
-        elseif (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'AutoScape\cache\current_wallpaper.jpg')) {
-            $thumbPath = (Resolve-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'AutoScape\cache\current_wallpaper.jpg')).Path
-        }
-        elseif (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'BingWallpaper\Cache\current_wallpaper.jpg')) {
-            $thumbPath = (Resolve-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'BingWallpaper\Cache\current_wallpaper.jpg')).Path
+        if (-not $thumbPath) {
+            $fallbacks = @(
+                (Join-Path $env:LOCALAPPDATA 'AutoScape\cache\current_wallpaper.jpg'),
+                (Join-Path $env:LOCALAPPDATA 'BingWallpaper\Cache\current_wallpaper.jpg')
+            )
+            $fPath = $fallbacks | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+            if ($fPath) { $thumbPath = (Resolve-Path -LiteralPath $fPath).Path }
         }
     }
     catch {}
