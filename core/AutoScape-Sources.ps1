@@ -179,7 +179,7 @@ function Get-PexelsImages {
 
     $data = @()
 
-    if ($Count -le 2) {
+    if ($Count -le 5) {
         # Fast path for automated background wallpaper rotation (1 query, 1 request)
         $query = Get-Random -InputObject $wallpaperQueries
         $escapedQuery = [System.Uri]::EscapeDataString($query)
@@ -192,7 +192,10 @@ function Get-PexelsImages {
         $wc.Headers.Add("Authorization", $ApiKey.Trim())
         try {
             $json = $wc.DownloadString($uri)
-            if ($json) { $data = @((ConvertFrom-Json -InputObject $json).photos) }
+            if ($json) {
+                $raw = @((ConvertFrom-Json -InputObject $json).photos)
+                $data = if ($raw.Count -gt 1) { @($raw | Get-Random -Count $raw.Count) } else { $raw }
+            }
         }
         catch {}
         finally {

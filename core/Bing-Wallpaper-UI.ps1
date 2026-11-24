@@ -1852,6 +1852,62 @@ function Get-DetectedRegionCode {
     return 'auto'
 }
 
+function Get-AutoIntervalMinutes([string]$ScheduleMode) {
+    switch ($ScheduleMode) {
+        '1h'  { return 60 }
+        '3h'  { return 180 }
+        '6h'  { return 360 }
+        '12h' { return 720 }
+        'Test1Minute' { return 1 }
+        default { return 0 }
+    }
+}
+
+function Test-IsTimerSource([string]$Source) {
+    return ($Source -in @('Wallhaven', 'Pexels', 'Local'))
+}
+
+function Test-AutoTargetDue {
+    param(
+        [string]$Source,
+        [string]$LastSource,
+        [string]$LastAppliedAt,
+        [string]$LegacyAppliedDate,
+        [bool]$AllowLegacyDateFallback = $true,
+        [string]$ScheduleMode,
+        [datetime]$Now = (Get-Date)
+    )
+    if ([string]::IsNullOrWhiteSpace($Source) -or $Source -eq 'None') { return $false }
+    if ($LastSource -ne $Source) { return $true }
+
+    # Bing and Spotlight update at most once per day regardless of timer selection.
+    $intervalMin = if (Test-IsTimerSource $Source) { Get-AutoIntervalMinutes $ScheduleMode } else { 0 }
+
+    if ($intervalMin -gt 0) {
+        if ([string]::IsNullOrWhiteSpace($LastAppliedAt)) { return $true }
+        try {
+            $lastDt = [DateTime]::Parse($LastAppliedAt, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind).ToLocalTime()
+            # 5-minute grace window absorbs Task Scheduler jitter (e.g. 01:00:05 -> 02:00:02).
+            $grace = if ($intervalMin -gt 5) { 5 } else { 0 }
+            return (($Now - $lastDt).TotalMinutes -ge ($intervalMin - $grace))
+        }
+        catch {
+            return $true
+        }
+    }
+
+    $todayStr = $Now.ToString('yyyyMMdd')
+    if (-not [string]::IsNullOrWhiteSpace($LastAppliedAt)) {
+        try {
+            $lastDt = [DateTime]::Parse($LastAppliedAt, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind).ToLocalTime()
+            return ($lastDt.ToString('yyyyMMdd') -ne $todayStr)
+        }
+        catch {}
+    }
+    if (-not $AllowLegacyDateFallback) { return $true }
+    return ($LegacyAppliedDate -ne $todayStr)
+}
+
 if ($AutoApply) {
     function Write-AutoLog {
         param([string]$Message)
@@ -1891,182 +1947,212 @@ if ($AutoApply) {
 
         $desktopSource = if ($savedSettings -and $savedSettings.AutoDesktopSource) { [string]$savedSettings.AutoDesktopSource } else { 'Bing' }
         $lockSource = if ($savedSettings -and $savedSettings.AutoLockScreenSource) { [string]$savedSettings.AutoLockScreenSource } else { 'Bing' }
-
-        $todayStamp = Get-Date -Format 'yyyyMMdd'
         $scheduleMode = if ($savedSettings -and $savedSettings.AutoSchedule) { [string]$savedSettings.AutoSchedule } else { 'Daily' }
-        if ($scheduleMode -ne 'Test1Minute' -and
-            $savedSettings -and 
-            $savedSettings.LastAutoAppliedDate -eq $todayStamp -and 
-            $savedSettings.LastAutoDesktopSource -eq $desktopSource -and 
-            $savedSettings.LastAutoLockSource -eq $lockSource) {
-            # Already applied for today, exit quietly without redundant work
-            Write-AutoLog "Skipping: Already auto-applied for today ($todayStamp)."
+
+        $lastDeskSource = if ($savedSettings -and $savedSettings.LastAutoDesktopSource) { [string]$savedSettings.LastAutoDesktopSource } else { '' }
+        $lastLockSource = if ($savedSettings -and $savedSettings.LastAutoLockSource) { [string]$savedSettings.LastAutoLockSource } else { '' }
+        $lastDeskAt = if ($savedSettings -and $savedSettings.LastDesktopAppliedAt) { [string]$savedSettings.LastDesktopAppliedAt } else { '' }
+        $lastLockAt = if ($savedSettings -and $savedSettings.LastLockAppliedAt) { [string]$savedSettings.LastLockAppliedAt } else { '' }
+        $legacyDate = if ($savedSettings -and $savedSettings.LastAutoAppliedDate) { [string]$savedSettings.LastAutoAppliedDate } else { '' }
+        $lastDeskId = if ($savedSettings -and $savedSettings.LastDesktopWallpaperId) { [string]$savedSettings.LastDesktopWallpaperId } elseif ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
+        $lastLockId = if ($savedSettings -and $savedSettings.LastLockWallpaperId) { [string]$savedSettings.LastLockWallpaperId } elseif ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
+
+        $now = Get-Date
+        $todayStamp = $now.ToString('yyyyMMdd')
+        $allowLegacyFallback = ([string]::IsNullOrWhiteSpace($lastDeskAt) -and [string]::IsNullOrWhiteSpace($lastLockAt))
+        $deskDue = Test-AutoTargetDue -Source $desktopSource -LastSource $lastDeskSource -LastAppliedAt $lastDeskAt -LegacyAppliedDate $legacyDate -AllowLegacyDateFallback $allowLegacyFallback -ScheduleMode $scheduleMode -Now $now
+        $lockDue = Test-AutoTargetDue -Source $lockSource -LastSource $lastLockSource -LastAppliedAt $lastLockAt -LegacyAppliedDate $legacyDate -AllowLegacyDateFallback $allowLegacyFallback -ScheduleMode $scheduleMode -Now $now
+
+        if (-not $deskDue -and -not $lockDue) {
+            Write-AutoLog "Skipping: Neither target is due (Schedule: $scheduleMode, Desktop: $desktopSource, Lock: $lockSource)."
             [Environment]::Exit(0)
         }
 
-        Write-AutoLog "Proceeding: Downloading and applying new wallpapers (Desktop: $desktopSource, Lock: $lockSource)..."
+        Write-AutoLog "Proceeding (Schedule: $scheduleMode, DesktopDue: $deskDue [$desktopSource], LockDue: $lockDue [$lockSource])..."
 
-        function Invoke-AutoSource {
-            param([string]$Source, [string]$Target)
+        function Get-AutoSourceCandidate {
+            param([string]$Source, [string]$LastId)
 
+            $images = @()
             switch ($Source) {
                 'Bing' {
-                    $images = Get-BingImages -Region $Region
-                    if ($images -and $images.Count -gt 0) {
-                        $topId = [string]$images[0].urlbase
-                        $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
-                        
-                        $topCanonical = Get-BingCanonicalId $topId
-                        $lastCanonical = Get-BingCanonicalId $lastAppliedId
-                        $isSameImage = ($lastCanonical -and $topCanonical -and $topCanonical -eq $lastCanonical)
-                        $isImageFromYesterday = ($images[0].enddate -and $images[0].enddate -match '^\d{8}$' -and $images[0].enddate -lt $todayStamp)
+                    $images = @(Get-BingImages -Region $Region)
+                    if ($images.Count -eq 0) { throw "No wallpaper was returned by Bing." }
+                    $topId = [string]$images[0].urlbase
+                    $topCanonical = Get-BingCanonicalId $topId
+                    $lastCanonical = Get-BingCanonicalId $LastId
+                    $isSameImage = ($lastCanonical -and $topCanonical -and $topCanonical -eq $lastCanonical)
+                    $isImageFromYesterday = ($images[0].enddate -and $images[0].enddate -match '^\d{8}$' -and $images[0].enddate -lt $todayStamp)
 
-                        if ($scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20 -and ($isSameImage -or $isImageFromYesterday)) {
-                            Write-AutoLog "Bing rollover pending: Top image ($topId, date: $($images[0].enddate)) is from yesterday or matches current wallpaper ($topCanonical). Waiting for next hourly check."
-                            [Environment]::Exit(0)
-                        }
-                        $script:appliedWallpaperId = $topId
+                    if ($scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20 -and ($isSameImage -or $isImageFromYesterday)) {
+                        Write-AutoLog "Bing rollover pending: Top image ($topId, date: $($images[0].enddate)) is from yesterday or matches current ($topCanonical)."
+                        return @{ Status = 'RolloverPending'; Image = $null; Id = '' }
                     }
+                    return @{ Status = 'Ready'; Image = $images[0]; Id = $topId }
                 }
                 'Spotlight' {
-                    $images = Get-SpotlightImages -Count 1
+                    $images = @(Get-SpotlightImages -Count 1)
+                    if ($images.Count -eq 0) { throw "No wallpaper was returned by Spotlight." }
+                    return @{ Status = 'Ready'; Image = $images[0]; Id = [string]$images[0].urlbase }
                 }
                 'Wallhaven' {
                     $wallhavenKey = if ($savedSettings -and $savedSettings.WallhavenApiKey) { [string]$savedSettings.WallhavenApiKey } else { '' }
-                    $images = Get-WallhavenImages -Count 5 -ApiKey $wallhavenKey
-                    if ($images -and $images.Count -gt 0) {
-                        $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
-                        $chosen = $images | Where-Object { [string]$_.urlbase -ne $lastAppliedId } | Select-Object -First 1
-                        if (-not $chosen) { $chosen = $images[0] }
-                        $images = @($chosen)
-                        $script:appliedWallpaperId = [string]$chosen.urlbase
-                    }
+                    $images = @(Get-WallhavenImages -Count 5 -ApiKey $wallhavenKey)
                 }
                 'Pexels' {
                     $pexelsKey = if ($savedSettings -and $savedSettings.PexelsApiKey) { [string]$savedSettings.PexelsApiKey } else { '' }
-                    $images = Get-PexelsImages -Count 1 -ApiKey $pexelsKey
+                    if ([string]::IsNullOrWhiteSpace($pexelsKey)) { throw "Pexels API key is not configured." }
+                    $images = @(Get-PexelsImages -Count 5 -ApiKey $pexelsKey)
                 }
                 'Local' {
                     $localFolder = if ($savedSettings -and $savedSettings.LocalFolderPath) { [string]$savedSettings.LocalFolderPath } else { '' }
-                    $images = Get-LocalImages -FolderPath $localFolder -Count 1
-                }
-                'None' {
-                    return
+                    if ([string]::IsNullOrWhiteSpace($localFolder) -or -not (Test-Path -LiteralPath $localFolder -PathType Container)) { throw "Local wallpaper folder is not set or missing." }
+                    $images = @(Get-LocalImages -FolderPath $localFolder -Count 5)
                 }
                 default {
                     throw "Unknown wallpaper source: $Source"
                 }
             }
 
-            if (-not $images -or $images.Count -eq 0) {
-                throw "No wallpaper was returned by $Source."
-            }
-
-            Set-BingImage -Image $images[0] -Resolution $Resolution -Target $Target -Style $Style | Out-Null
+            if ($images.Count -eq 0) { throw "No wallpaper was returned by $Source." }
+            $pool = @($images | Where-Object { [string]$_.urlbase -ne $LastId })
+            if ($pool.Count -eq 0) { $pool = $images }
+            $chosen = $pool | Get-Random -Count 1
+            return @{ Status = 'Ready'; Image = $chosen; Id = [string]$chosen.urlbase }
         }
 
-        $applySuccess = $false
+        $deskDone = (-not $deskDue)
+        $lockDone = (-not $lockDue)
+        $deskAppliedId = ''
+        $lockAppliedId = ''
+        $deskRollover = $false
+        $lockRollover = $false
         $lastApplyError = $null
 
         for ($attempt = 1; $attempt -le 5; $attempt++) {
             $errors = @()
-            if ($desktopSource -eq 'Bing' -and $lockSource -eq 'Bing') {
+
+            if ((-not $deskDone) -and (-not $lockDone) -and ($desktopSource -eq $lockSource) -and ($desktopSource -in @('Bing', 'Local'))) {
                 try {
-                    $images = Get-BingImages -Region $Region
-                    if (-not $images -or $images.Count -eq 0) { throw "No wallpaper was returned by Bing." }
-
-                    $topId = [string]$images[0].urlbase
-                    $lastAppliedId = if ($savedSettings -and $savedSettings.LastAutoAppliedWallpaperId) { [string]$savedSettings.LastAutoAppliedWallpaperId } else { '' }
-                    
-                    $topCanonical = Get-BingCanonicalId $topId
-                    $lastCanonical = Get-BingCanonicalId $lastAppliedId
-                    $isSameImage = ($lastCanonical -and $topCanonical -and $topCanonical -eq $lastCanonical)
-                    $isImageFromYesterday = ($images[0].enddate -and $images[0].enddate -match '^\d{8}$' -and $images[0].enddate -lt $todayStamp)
-
-                    if ($scheduleMode -ne 'Test1Minute' -and (Get-Date).Hour -lt 20 -and ($isSameImage -or $isImageFromYesterday)) {
-                        Write-AutoLog "Bing rollover pending: Top image ($topId, date: $($images[0].enddate)) is from yesterday or matches current wallpaper ($topCanonical). Waiting for next hourly check."
-                        [Environment]::Exit(0)
+                    $cand = Get-AutoSourceCandidate -Source $desktopSource -LastId $lastDeskId
+                    if ($cand.Status -eq 'RolloverPending') {
+                        $deskDone = $true; $lockDone = $true
+                        $deskRollover = $true; $lockRollover = $true
                     }
-
-                    Set-BingImage -Image $images[0] -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
-                    $script:appliedWallpaperId = $topId
-                    Write-AutoLog "Attempt ${attempt}: Successfully applied Bing to Both."
-                    $applySuccess = $true
+                    else {
+                        Set-BingImage -Image $cand.Image -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
+                        $deskAppliedId = $cand.Id; $lockAppliedId = $cand.Id
+                        $deskDone = $true; $lockDone = $true
+                        Write-AutoLog "Attempt ${attempt}: Successfully applied $desktopSource to Both."
+                    }
                 }
                 catch {
                     $errMsg = $_.Exception.Message
-                    Write-AutoLog "Attempt ${attempt} failed (Bing Both): $errMsg"
+                    Write-AutoLog "Attempt ${attempt} failed ($desktopSource Both): $errMsg"
                     $errors += "AutoApply Both: $errMsg"
                 }
             }
-            elseif ($desktopSource -eq 'Local' -and $lockSource -eq 'Local') {
-                try {
-                    $localFolder = if ($savedSettings -and $savedSettings.LocalFolderPath) { [string]$savedSettings.LocalFolderPath } else { '' }
-                    $images = Get-LocalImages -FolderPath $localFolder -Count 1
-                    if (-not $images -or $images.Count -eq 0) { throw "No wallpaper was found in the local folder." }
-                    Set-BingImage -Image $images[0] -Resolution $Resolution -Target 'Both' -Style $Style | Out-Null
-                    Write-AutoLog "Attempt ${attempt}: Successfully applied Local to Both."
-                    $applySuccess = $true
-                }
-                catch {
-                    $errMsg = $_.Exception.Message
-                    Write-AutoLog "Attempt $attempt failed (Local Both): $errMsg"
-                    $errors += "AutoApply Both Local: $errMsg"
-                }
-            }
             else {
-                try { Invoke-AutoSource -Source $desktopSource -Target 'Desktop' } catch { $errMsg = $_.Exception.Message; Write-AutoLog "Attempt $attempt failed (Desktop): $errMsg"; $errors += "Desktop: $errMsg" }
-                try { Invoke-AutoSource -Source $lockSource -Target 'Lock screen' } catch { $errMsg = $_.Exception.Message; Write-AutoLog "Attempt $attempt failed (Lock screen): $errMsg"; $errors += "Lock screen: $errMsg" }
-                if ($errors.Count -eq 0) { 
-                    Write-AutoLog "Attempt ${attempt}: Successfully applied to Desktop and Lock screen."
-                    $applySuccess = $true 
+                if (-not $deskDone) {
+                    try {
+                        $cand = Get-AutoSourceCandidate -Source $desktopSource -LastId $lastDeskId
+                        if ($cand.Status -eq 'RolloverPending') {
+                            $deskDone = $true
+                            $deskRollover = $true
+                        }
+                        else {
+                            Set-BingImage -Image $cand.Image -Resolution $Resolution -Target 'Desktop' -Style $Style | Out-Null
+                            $deskAppliedId = $cand.Id
+                            $deskDone = $true
+                            Write-AutoLog "Attempt ${attempt}: Successfully applied $desktopSource to Desktop."
+                        }
+                    }
+                    catch {
+                        $errMsg = $_.Exception.Message
+                        Write-AutoLog "Attempt $attempt failed (Desktop): $errMsg"
+                        $errors += "Desktop: $errMsg"
+                    }
+                }
+                if (-not $lockDone) {
+                    try {
+                        $cand = Get-AutoSourceCandidate -Source $lockSource -LastId $lastLockId
+                        if ($cand.Status -eq 'RolloverPending') {
+                            $lockDone = $true
+                            $lockRollover = $true
+                        }
+                        else {
+                            Set-BingImage -Image $cand.Image -Resolution $Resolution -Target 'Lock screen' -Style $Style | Out-Null
+                            $lockAppliedId = $cand.Id
+                            $lockDone = $true
+                            Write-AutoLog "Attempt ${attempt}: Successfully applied $lockSource to Lock screen."
+                        }
+                    }
+                    catch {
+                        $errMsg = $_.Exception.Message
+                        Write-AutoLog "Attempt $attempt failed (Lock screen): $errMsg"
+                        $errors += "Lock screen: $errMsg"
+                    }
                 }
             }
 
-            if ($applySuccess) {
-                break
-            }
-
+            if ($deskDone -and $lockDone) { break }
             $lastApplyError = ($errors -join '; ')
-            if ($attempt -lt 5) {
-                Start-Sleep -Seconds 60
+            if ($attempt -lt 5) { Start-Sleep -Seconds 60 }
+        }
+
+        # Persist any target that succeeded (even if the other target failed) so it won't re-roll on retry.
+        $appliedNowStamp = (Get-Date).ToString('o')
+        if ($deskAppliedId -or $lockAppliedId) {
+            try {
+                $existing = Load-Settings
+                $newDeskAt = if ($deskAppliedId) { $appliedNowStamp } elseif ($existing -and $existing.LastDesktopAppliedAt) { [string]$existing.LastDesktopAppliedAt } else { '' }
+                $newLockAt = if ($lockAppliedId) { $appliedNowStamp } elseif ($existing -and $existing.LastLockAppliedAt) { [string]$existing.LastLockAppliedAt } else { '' }
+                $newDeskId = if ($deskAppliedId) { $deskAppliedId } elseif ($existing -and $existing.LastDesktopWallpaperId) { [string]$existing.LastDesktopWallpaperId } else { '' }
+                $newLockId = if ($lockAppliedId) { $lockAppliedId } elseif ($existing -and $existing.LastLockWallpaperId) { [string]$existing.LastLockWallpaperId } else { '' }
+                $legacyTopId = if ($deskAppliedId) { $deskAppliedId } elseif ($lockAppliedId) { $lockAppliedId } elseif ($existing -and $existing.LastAutoAppliedWallpaperId) { [string]$existing.LastAutoAppliedWallpaperId } else { '' }
+
+                $settingsObj = @{
+                    Region                     = if ($existing -and $existing.Region) { $existing.Region } else { "auto" }
+                    Resolution                 = if ($existing -and $existing.Resolution) { $existing.Resolution } else { "4K" }
+                    Target                     = if ($existing -and $existing.Target) { $existing.Target } else { "Both" }
+                    Style                      = if ($existing -and $existing.Style) { $existing.Style } else { "Fit" }
+                    SaveFolder                 = if ($existing -and $existing.SaveFolder) { $existing.SaveFolder } else { (Get-DownloadFolder) }
+                    AutoApplyRegion            = if ($existing -and $existing.AutoApplyRegion) { [string]$existing.AutoApplyRegion } else { '' }
+                    AutoDesktopSource          = $desktopSource
+                    AutoLockScreenSource       = $lockSource
+                    AutoSchedule               = if ($existing -and $existing.AutoSchedule) { $existing.AutoSchedule } else { 'Daily' }
+                    SpotlightEnabled           = if ($existing -and $null -ne $existing.SpotlightEnabled) { [bool]$existing.SpotlightEnabled } else { $true }
+                    WallhavenApiKey            = if ($existing -and $existing.WallhavenApiKey) { $existing.WallhavenApiKey } else { '' }
+                    PexelsApiKey               = if ($existing -and $existing.PexelsApiKey) { $existing.PexelsApiKey } else { '' }
+                    LocalFolderPath            = if ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
+                    LastAutoAppliedDate        = if ($scheduleMode -eq 'Test1Minute') { '' } else { $todayStamp }
+                    LastAutoAppliedWallpaperId = $legacyTopId
+                    LastAutoDesktopSource      = if ($deskAppliedId) { $desktopSource } else { $lastDeskSource }
+                    LastAutoLockSource         = if ($lockAppliedId) { $lockSource } else { $lastLockSource }
+                    LastDesktopAppliedAt       = $newDeskAt
+                    LastLockAppliedAt          = $newLockAt
+                    LastDesktopWallpaperId     = $newDeskId
+                    LastLockWallpaperId        = $newLockId
+                }
+                $settingsObj | ConvertTo-Json -Depth 2 | Set-Content -LiteralPath $script:settingsPath
+                Write-AutoLog "Settings saved successfully."
+            }
+            catch {
+                Write-AutoLog "Warning: Failed to save settings. $($_.Exception.Message)"
             }
         }
 
-        if (-not $applySuccess) {
+        if (-not ($deskDone -and $lockDone)) {
             Write-AutoLog "Final give-up: Failed after 5 attempts. Last error: $lastApplyError"
             throw $lastApplyError
         }
 
-        # Mark successful auto-apply for today
-        try {
-            $existing = Load-Settings
-            $settingsObj = @{
-                Region                = if ($existing -and $existing.Region) { $existing.Region } else { "auto" }
-                Resolution            = if ($existing -and $existing.Resolution) { $existing.Resolution } else { "4K" }
-                Target                = if ($existing -and $existing.Target) { $existing.Target } else { "Both" }
-                Style                 = if ($existing -and $existing.Style) { $existing.Style } else { "Fit" }
-                SaveFolder            = if ($existing -and $existing.SaveFolder) { $existing.SaveFolder } else { (Get-DownloadFolder) }
-                AutoDesktopSource     = $desktopSource
-                AutoLockScreenSource  = $lockSource
-                AutoSchedule          = if ($existing -and $existing.AutoSchedule) { $existing.AutoSchedule } else { 'Daily' }
-                SpotlightEnabled      = if ($existing -and $null -ne $existing.SpotlightEnabled) { [bool]$existing.SpotlightEnabled } else { $true }
-                WallhavenApiKey       = if ($existing -and $existing.WallhavenApiKey) { $existing.WallhavenApiKey } else { '' }
-                PexelsApiKey          = if ($existing -and $existing.PexelsApiKey) { $existing.PexelsApiKey } else { '' }
-                LocalFolderPath       = if ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
-                LastAutoAppliedDate        = if ($scheduleMode -eq 'Test1Minute') { '' } else { $todayStamp }
-                LastAutoAppliedWallpaperId = if ($script:appliedWallpaperId) { [string]$script:appliedWallpaperId } elseif ($existing -and $existing.LastAutoAppliedWallpaperId) { [string]$existing.LastAutoAppliedWallpaperId } else { '' }
-                LastAutoDesktopSource      = $desktopSource
-                LastAutoLockSource         = $lockSource
-            }
-            $settingsObj | ConvertTo-Json -Depth 2 | Set-Content -LiteralPath $script:settingsPath
-            Write-AutoLog "Settings saved successfully (LastAutoAppliedDate and LastAutoAppliedWallpaperId updated)."
+        if (($deskRollover -or $lockRollover) -and (-not $deskAppliedId) -and (-not $lockAppliedId)) {
+            Write-AutoLog "Rollover pending; waiting for next hourly check."
         }
-        catch {
-            Write-AutoLog "Warning: Failed to save settings. $($_.Exception.Message)"
+        else {
+            Write-AutoLog "AutoApply completed successfully."
         }
-
-        Write-AutoLog "AutoApply completed successfully."
         [Environment]::Exit(0)
     }
     catch {
@@ -2952,23 +3038,44 @@ $xaml = @"
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid Grid.Column="0">
-                                        <Border Name="SchedEverydayInd" Background="#25FFFFFF" CornerRadius="5" Opacity="1" BorderBrush="#10FFFFFF" BorderThickness="1"/>
-                                        <Button Name="SchedEverydayBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
-                                            <TextBlock Name="SchedEverydayLbl" Text="Everyday" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,6,0,7"/>
+                                        <Border Name="Sched1hInd" Background="#25FFFFFF" CornerRadius="5" Opacity="0" BorderBrush="#10FFFFFF" BorderThickness="1"/>
+                                        <Button Name="Sched1hBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <TextBlock Name="Sched1hLbl" Text="1h" FontSize="13" FontWeight="SemiBold" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,6,0,7"/>
                                         </Button>
                                     </Grid>
                                     <Grid Grid.Column="1">
-                                        <Border Name="SchedTestInd" Background="#25FFFFFF" CornerRadius="5" Opacity="0" BorderBrush="#10FFFFFF" BorderThickness="1"/>
-                                        <Button Name="SchedTestBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
-                                            <TextBlock Name="SchedTestLbl" Text="1 Minute (Test)" FontSize="13" FontWeight="SemiBold" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,6,0,7"/>
+                                        <Border Name="Sched3hInd" Background="#25FFFFFF" CornerRadius="5" Opacity="0" BorderBrush="#10FFFFFF" BorderThickness="1"/>
+                                        <Button Name="Sched3hBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <TextBlock Name="Sched3hLbl" Text="3h" FontSize="13" FontWeight="SemiBold" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,6,0,7"/>
+                                        </Button>
+                                    </Grid>
+                                    <Grid Grid.Column="2">
+                                        <Border Name="Sched6hInd" Background="#25FFFFFF" CornerRadius="5" Opacity="0" BorderBrush="#10FFFFFF" BorderThickness="1"/>
+                                        <Button Name="Sched6hBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <TextBlock Name="Sched6hLbl" Text="6h" FontSize="13" FontWeight="SemiBold" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,6,0,7"/>
+                                        </Button>
+                                    </Grid>
+                                    <Grid Grid.Column="3">
+                                        <Border Name="Sched12hInd" Background="#25FFFFFF" CornerRadius="5" Opacity="0" BorderBrush="#10FFFFFF" BorderThickness="1"/>
+                                        <Button Name="Sched12hBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <TextBlock Name="Sched12hLbl" Text="12h" FontSize="13" FontWeight="SemiBold" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,6,0,7"/>
+                                        </Button>
+                                    </Grid>
+                                    <Grid Grid.Column="4">
+                                        <Border Name="SchedDailyInd" Background="#25FFFFFF" CornerRadius="5" Opacity="1" BorderBrush="#10FFFFFF" BorderThickness="1"/>
+                                        <Button Name="SchedDailyBtn" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <TextBlock Name="SchedDailyLbl" Text="Daily" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,6,0,7"/>
                                         </Button>
                                     </Grid>
                                 </Grid>
                             </Border>
                             
-                            <TextBlock Text="Changes are saved Automatically" FontSize="11" Foreground="#888888" HorizontalAlignment="Left" Margin="6,0,0,0" FontStyle="Italic"/>
+                            <TextBlock Name="AutoScheduleHint" Text="Changes are saved automatically" FontSize="11" Foreground="#888888" HorizontalAlignment="Left" Margin="6,0,0,0" FontStyle="Italic" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -3645,22 +3752,27 @@ function Save-Settings {
     try {
         $existing = Load-Settings
         $settingsObj = @{
-            Region                = if ($existing -and $existing.Region) { $existing.Region } else { "auto" }
-            Resolution            = if ($ResolutionBox.SelectedItem) { $ResolutionBox.SelectedItem } else { "4K" }
-            Target                = if ($TargetBox.SelectedItem) { $TargetBox.SelectedItem } else { "Both" }
-            Style                 = if ($StyleBox.SelectedItem) { $StyleBox.SelectedItem } else { "Fit" }
-            SaveFolder            = $script:DownloadFolderPath
-            AutoDesktopSource     = if ($AutoDesktopSourceBox -and $AutoDesktopSourceBox.SelectedItem) { [string]$AutoDesktopSourceBox.SelectedItem } else { 'Bing' }
-            AutoLockScreenSource  = if ($AutoLockScreenSourceBox -and $AutoLockScreenSourceBox.SelectedItem) { [string]$AutoLockScreenSourceBox.SelectedItem } else { 'Bing' }
-            AutoSchedule          = if ($AutoScheduleBox -and $AutoScheduleBox.SelectedItem) { [string]$AutoScheduleBox.SelectedItem.Tag } else { 'Daily' }
-            SpotlightEnabled      = [bool]$script:SpotlightEnabled
-            WallhavenApiKey       = (Get-SourceApiKey 'Wallhaven')
-            PexelsApiKey          = (Get-SourceApiKey 'Pexels')
-            LocalFolderPath       = if ($script:localFolderPath) { $script:localFolderPath } elseif ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
+            Region                     = if ($existing -and $existing.Region) { $existing.Region } else { "auto" }
+            Resolution                 = if ($ResolutionBox.SelectedItem) { $ResolutionBox.SelectedItem } else { "4K" }
+            Target                     = if ($TargetBox.SelectedItem) { $TargetBox.SelectedItem } else { "Both" }
+            Style                      = if ($StyleBox.SelectedItem) { $StyleBox.SelectedItem } else { "Fit" }
+            SaveFolder                 = $script:DownloadFolderPath
+            AutoApplyRegion            = if ($existing -and $existing.AutoApplyRegion) { [string]$existing.AutoApplyRegion } else { '' }
+            AutoDesktopSource          = if ($AutoDesktopSourceBox -and $AutoDesktopSourceBox.SelectedItem) { [string]$AutoDesktopSourceBox.SelectedItem } else { 'Bing' }
+            AutoLockScreenSource       = if ($AutoLockScreenSourceBox -and $AutoLockScreenSourceBox.SelectedItem) { [string]$AutoLockScreenSourceBox.SelectedItem } else { 'Bing' }
+            AutoSchedule               = if ($AutoScheduleBox -and $AutoScheduleBox.SelectedItem) { [string]$AutoScheduleBox.SelectedItem.Tag } else { 'Daily' }
+            SpotlightEnabled           = [bool]$script:SpotlightEnabled
+            WallhavenApiKey            = (Get-SourceApiKey 'Wallhaven')
+            PexelsApiKey               = (Get-SourceApiKey 'Pexels')
+            LocalFolderPath            = if ($script:localFolderPath) { $script:localFolderPath } elseif ($existing -and $existing.LocalFolderPath) { [string]$existing.LocalFolderPath } else { '' }
             LastAutoAppliedDate        = if ($existing -and $existing.LastAutoAppliedDate) { [string]$existing.LastAutoAppliedDate } else { '' }
             LastAutoAppliedWallpaperId = if ($existing -and $existing.LastAutoAppliedWallpaperId) { [string]$existing.LastAutoAppliedWallpaperId } else { '' }
             LastAutoDesktopSource      = if ($existing -and $existing.LastAutoDesktopSource) { [string]$existing.LastAutoDesktopSource } else { '' }
             LastAutoLockSource         = if ($existing -and $existing.LastAutoLockSource) { [string]$existing.LastAutoLockSource } else { '' }
+            LastDesktopAppliedAt       = if ($existing -and $existing.LastDesktopAppliedAt) { [string]$existing.LastDesktopAppliedAt } else { '' }
+            LastLockAppliedAt          = if ($existing -and $existing.LastLockAppliedAt) { [string]$existing.LastLockAppliedAt } else { '' }
+            LastDesktopWallpaperId     = if ($existing -and $existing.LastDesktopWallpaperId) { [string]$existing.LastDesktopWallpaperId } else { '' }
+            LastLockWallpaperId        = if ($existing -and $existing.LastLockWallpaperId) { [string]$existing.LastLockWallpaperId } else { '' }
         }
         $dir = Split-Path -Parent $script:settingsPath
         if (-not (Test-Path -LiteralPath $dir)) {
@@ -4439,6 +4551,7 @@ $AutoDesktopSourceBox = $window.FindName('AutoDesktopSourceBox')
 $AutoLockScreenSourceBox = $window.FindName('AutoLockScreenSourceBox')
 $AutoUnifiedButton = $window.FindName('AutoUnifiedButton')
 $AutoScheduleBox = $window.FindName('AutoScheduleBox')
+$AutoScheduleHint = $window.FindName('AutoScheduleHint')
 
 # Compact-mode toolbar elements (see Update-ToolbarCompactState below)
 $ToolbarWrap = $window.FindName('ToolbarWrap')
@@ -5435,11 +5548,14 @@ function Update-SpotlightScheduledTaskAsync {
 
     $bgEnable = $Enable
     $bgSchedule = if ($AutoScheduleBox -and $AutoScheduleBox.SelectedItem) { [string]$AutoScheduleBox.SelectedItem.Tag } else { 'Daily' }
+    $deskSrc = if ($AutoDesktopSourceBox -and $AutoDesktopSourceBox.SelectedItem) { [string]$AutoDesktopSourceBox.SelectedItem } else { 'Bing' }
+    $lockSrc = if ($AutoLockScreenSourceBox -and $AutoLockScreenSourceBox.SelectedItem) { [string]$AutoLockScreenSourceBox.SelectedItem } else { 'Bing' }
+    $bgNeedsNetwork = ($deskSrc -in @('Bing', 'Spotlight', 'Wallhaven', 'Pexels')) -or ($lockSrc -in @('Bing', 'Spotlight', 'Wallhaven', 'Pexels'))
     $bgScriptPath = $script:SpotlightScriptPath
 
     $ps = [powershell]::Create()
     [void]$ps.AddScript({
-            param([bool]$Enable, [string]$Schedule, [string]$ScriptPath)
+            param([bool]$Enable, [string]$Schedule, [bool]$NeedsNetwork, [string]$ScriptPath)
             try {
                 $taskName = 'AutoScapeDailyWallpaper'
                 $legacyTaskName = 'BingWallpaperSpotlight'
@@ -5461,16 +5577,23 @@ function Update-SpotlightScheduledTaskAsync {
                         $action = New-ScheduledTaskAction -Execute $conhostExe -Argument $fullArgs -WorkingDirectory $workingDir
                     }
 
-                    $settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden -ExecutionTimeLimit (New-TimeSpan -Hours 2) -RestartCount 144 -RestartInterval (New-TimeSpan -Minutes 5)
+                    $taskSettingsParams = @{
+                        AllowStartIfOnBatteries    = $true
+                        DontStopIfGoingOnBatteries = $true
+                        StartWhenAvailable         = $true
+                        Hidden                     = $true
+                        ExecutionTimeLimit         = (New-TimeSpan -Hours 2)
+                        RestartCount               = 144
+                        RestartInterval            = (New-TimeSpan -Minutes 5)
+                    }
+                    if ($NeedsNetwork) { $taskSettingsParams.RunOnlyIfNetworkAvailable = $true }
+                    $settings = New-ScheduledTaskSettingsSet @taskSettingsParams
+
                     if ($Schedule -eq 'Test1Minute') {
-                        # Temporary test mode: repeat once per minute so Auto can be verified quickly.
                         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
                     }
                     else {
-                        # Daily starting at local midnight, repeating every hour for 24h.
-                        # Task requires a network connection to start. If offline at midnight, it will
-                        # automatically wait and fire as soon as the internet connects. If the download
-                        # itself fails, it retries up to 144 times with a 5-minute gap (12 hours).
+                        # Hourly heartbeat; -AutoApply checks per-target elapsed time / daily date.
                         $trigger = New-ScheduledTaskTrigger -Daily -At '12:00AM'
                         $trigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 1)).Repetition
                     }
@@ -5484,7 +5607,7 @@ function Update-SpotlightScheduledTaskAsync {
                 }
             }
             catch {}
-        }).AddArgument($bgEnable).AddArgument($bgSchedule).AddArgument($bgScriptPath)
+        }).AddArgument($bgEnable).AddArgument($bgSchedule).AddArgument($bgNeedsNetwork).AddArgument($bgScriptPath)
 
     $asyncOp = $ps.BeginInvoke()
     [System.Threading.Tasks.Task]::Run([Action] {
@@ -7021,19 +7144,24 @@ $AutoLockScreenSourceBox.SelectedItem = $savedLockScreenSource
 if (-not $AutoLockScreenSourceBox.SelectedItem) { $AutoLockScreenSourceBox.SelectedItem = 'Bing' }
 
 if ($AutoScheduleBox) {
-    $dailyItem = New-Object System.Windows.Controls.ComboBoxItem
-    $dailyItem.Content = "Daily $([char]183) 12:00 AM"
-    $dailyItem.Tag = 'Daily'
-    [void]$AutoScheduleBox.Items.Add($dailyItem)
-
-    $testItem = New-Object System.Windows.Controls.ComboBoxItem
-    $testItem.Content = 'Every 1 minute (Test)'
-    $testItem.Tag = 'Test1Minute'
-    [void]$AutoScheduleBox.Items.Add($testItem)
+    foreach ($opt in @(
+            @{ Tag = '1h'; Label = 'Every 1 hour' },
+            @{ Tag = '3h'; Label = 'Every 3 hours' },
+            @{ Tag = '6h'; Label = 'Every 6 hours' },
+            @{ Tag = '12h'; Label = 'Every 12 hours' },
+            @{ Tag = 'Daily'; Label = "Daily $([char]183) 12:00 AM" }
+        )) {
+        $item = New-Object System.Windows.Controls.ComboBoxItem
+        $item.Content = $opt.Label
+        $item.Tag = $opt.Tag
+        [void]$AutoScheduleBox.Items.Add($item)
+    }
 
     $savedSchedule = if ($script:appSettings.AutoSchedule) { [string]$script:appSettings.AutoSchedule } else { 'Daily' }
     $AutoScheduleBox.SelectedItem = $AutoScheduleBox.Items | Where-Object { [string]$_.Tag -eq $savedSchedule } | Select-Object -First 1
-    if (-not $AutoScheduleBox.SelectedItem) { $AutoScheduleBox.SelectedIndex = 0 }
+    if (-not $AutoScheduleBox.SelectedItem) {
+        $AutoScheduleBox.SelectedItem = $AutoScheduleBox.Items | Where-Object { [string]$_.Tag -eq 'Daily' } | Select-Object -First 1
+    }
 }
 
 $spotlightWasEnabled = ($script:appSettings.SpotlightEnabled -eq $true)
@@ -7050,7 +7178,8 @@ if ($AutoToggleCheckbox) {
             Set-SpotlightState -Enabled:$newState
 
             if ($newState) {
-                Set-TransientStatus -Message "Automatic wallpaper changing enabled. Default schedule: daily at 12:00 AM." -Brush $statusSuccessBrush
+                $schedLabel = if ($AutoScheduleBox -and $AutoScheduleBox.SelectedItem) { [string]$AutoScheduleBox.SelectedItem.Tag } else { 'Daily' }
+                Set-TransientStatus -Message "Automatic wallpaper changing enabled ($schedLabel)." -Brush $statusSuccessBrush
                 if ($SpotlightOptionsPopup) {
                     $openPopupTimer = New-Object System.Windows.Threading.DispatcherTimer
                     $openPopupTimer.Interval = [TimeSpan]::FromMilliseconds(240)
@@ -7069,6 +7198,14 @@ if ($AutoToggleCheckbox) {
         })
 }
 
+$script:scheduleButtonSpecs = @(
+    @{ Tag = '1h'; Ind = 'Sched1hInd'; Lbl = 'Sched1hLbl'; Btn = 'Sched1hBtn' },
+    @{ Tag = '3h'; Ind = 'Sched3hInd'; Lbl = 'Sched3hLbl'; Btn = 'Sched3hBtn' },
+    @{ Tag = '6h'; Ind = 'Sched6hInd'; Lbl = 'Sched6hLbl'; Btn = 'Sched6hBtn' },
+    @{ Tag = '12h'; Ind = 'Sched12hInd'; Lbl = 'Sched12hLbl'; Btn = 'Sched12hBtn' },
+    @{ Tag = 'Daily'; Ind = 'SchedDailyInd'; Lbl = 'SchedDailyLbl'; Btn = 'SchedDailyBtn' }
+)
+
 function Update-AutoOptionUI {
     param([string]$Category, $SelectedItem)
     if (-not $SelectedItem) { return }
@@ -7085,24 +7222,17 @@ function Update-AutoOptionUI {
         $vals = @('Bing', 'Spotlight', 'Wallhaven', 'Pexels', 'Local', 'None')
     }
     elseif ($Category -eq 'Schedule') {
-        $inds = @($window.FindName('SchedEverydayInd'), $window.FindName('SchedTestInd'))
-        $lbls = @($window.FindName('SchedEverydayLbl'), $window.FindName('SchedTestLbl'))
-        if ($AutoScheduleBox.Items.Count -ge 2) {
-            $vals = @($AutoScheduleBox.Items[0], $AutoScheduleBox.Items[1])
+        foreach ($spec in $script:scheduleButtonSpecs) {
+            $inds += $window.FindName($spec.Ind)
+            $lbls += $window.FindName($spec.Lbl)
+            $vals += $spec.Tag
         }
     }
-    
+
+    $selectedVal = if ($SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { [string]$SelectedItem.Tag } else { [string]$SelectedItem }
     for ($i = 0; $i -lt $inds.Count; $i++) {
         if ($inds[$i] -and $lbls[$i] -and $vals[$i]) {
-            $match = $false
-            if ($vals[$i] -is [System.Windows.Controls.ComboBoxItem]) {
-                $selTag = if ($SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $SelectedItem.Tag } else { [string]$SelectedItem }
-                $match = ($vals[$i].Tag -eq $selTag -or $vals[$i].Content -eq $SelectedItem)
-            }
-            else {
-                $match = ($vals[$i] -eq [string]$SelectedItem)
-            }
-            if ($match) {
+            if ($vals[$i] -eq $selectedVal) {
                 $inds[$i].Opacity = 1
                 $lbls[$i].Foreground = "#FFFFFF"
             }
@@ -7110,6 +7240,45 @@ function Update-AutoOptionUI {
                 $inds[$i].Opacity = 0
                 $lbls[$i].Foreground = "#9E9E9E"
             }
+        }
+    }
+}
+
+function Update-AutoScheduleAvailability {
+    $desk = if ($AutoDesktopSourceBox -and $AutoDesktopSourceBox.SelectedItem) { [string]$AutoDesktopSourceBox.SelectedItem } else { 'Bing' }
+    $lock = if ($AutoLockScreenSourceBox -and $AutoLockScreenSourceBox.SelectedItem) { [string]$AutoLockScreenSourceBox.SelectedItem } else { 'Bing' }
+    $timerSources = @($desk, $lock | Where-Object { Test-IsTimerSource $_ } | Select-Object -Unique)
+    $dailySources = @($desk, $lock | Where-Object { $_ -in @('Bing', 'Spotlight') } | Select-Object -Unique)
+    $hasTimer = ($timerSources.Count -gt 0)
+
+    foreach ($spec in $script:scheduleButtonSpecs) {
+        $btn = $window.FindName($spec.Btn)
+        if (-not $btn) { continue }
+        $isAllowed = ($spec.Tag -eq 'Daily' -or $hasTimer)
+        $btn.IsEnabled = $isAllowed
+        $btn.Opacity = if ($isAllowed) { 1.0 } else { 0.35 }
+        $btn.Cursor = if ($isAllowed) { [System.Windows.Input.Cursors]::Hand } else { [System.Windows.Input.Cursors]::Arrow }
+    }
+
+    $schedTag = if ($AutoScheduleBox -and $AutoScheduleBox.SelectedItem) { [string]$AutoScheduleBox.SelectedItem.Tag } else { 'Daily' }
+    $displayTag = if ($hasTimer) { $schedTag } else { 'Daily' }
+    Update-AutoOptionUI 'Schedule' $displayTag
+
+    if ($AutoScheduleHint) {
+        if (-not $hasTimer) {
+            $AutoScheduleHint.Text = "Bing & Spotlight update daily. Pick Wallhaven, Pexels, or Local for timers."
+        }
+        elseif (($desk -eq 'Pexels' -or $lock -eq 'Pexels') -and [string]::IsNullOrWhiteSpace((Get-SourceApiKey 'Pexels'))) {
+            $AutoScheduleHint.Text = "Set your Pexels API key in Preferences for Pexels auto-rotation."
+        }
+        elseif (($desk -eq 'Local' -or $lock -eq 'Local') -and [string]::IsNullOrWhiteSpace($script:localFolderPath)) {
+            $AutoScheduleHint.Text = "Pick a Local wallpaper folder in Preferences for Local auto-rotation."
+        }
+        elseif ($dailySources.Count -gt 0 -and $schedTag -ne 'Daily') {
+            $AutoScheduleHint.Text = "$($timerSources -join ' & ') update every $schedTag $([char]183) $($dailySources -join ' & ') daily."
+        }
+        else {
+            $AutoScheduleHint.Text = "Changes are saved automatically"
         }
     }
 }
@@ -7140,37 +7309,48 @@ if ($LockLocalBtn) { $LockLocalBtn.Add_Click({ $AutoLockScreenSourceBox.Selected
 $LockNoneBtn = $window.FindName('LockNoneBtn')
 if ($LockNoneBtn) { $LockNoneBtn.Add_Click({ $AutoLockScreenSourceBox.SelectedItem = 'None' }) }
 
-$SchedEverydayBtn = $window.FindName('SchedEverydayBtn')
-if ($SchedEverydayBtn) { $SchedEverydayBtn.Add_Click({ $AutoScheduleBox.SelectedItem = $AutoScheduleBox.Items[0] }) }
-$SchedTestBtn = $window.FindName('SchedTestBtn')
-if ($SchedTestBtn) { $SchedTestBtn.Add_Click({ $AutoScheduleBox.SelectedItem = $AutoScheduleBox.Items[1] }) }
+foreach ($spec in $script:scheduleButtonSpecs) {
+    $schedBtn = $window.FindName($spec.Btn)
+    if ($schedBtn) {
+        $tagToSelect = $spec.Tag
+        $schedBtn.Add_Click({
+                if ($AutoScheduleBox) {
+                    $AutoScheduleBox.SelectedItem = $AutoScheduleBox.Items | Where-Object { [string]$_.Tag -eq $tagToSelect } | Select-Object -First 1
+                }
+            }.GetNewClosure())
+    }
+}
 
 $AutoDesktopSourceBox.Add_SelectionChanged({
         Update-AutoOptionUI 'Desktop' $AutoDesktopSourceBox.SelectedItem
+        Update-AutoScheduleAvailability
         if ($script:SpotlightEnabled) {
+            Update-SpotlightScheduledTaskAsync -Enable $true
             Save-Settings
         }
     })
 
 $AutoLockScreenSourceBox.Add_SelectionChanged({
         Update-AutoOptionUI 'LockScreen' $AutoLockScreenSourceBox.SelectedItem
+        Update-AutoScheduleAvailability
         if ($script:SpotlightEnabled) {
+            Update-SpotlightScheduledTaskAsync -Enable $true
             Save-Settings
         }
     })
 
 if ($AutoScheduleBox) {
     $AutoScheduleBox.Add_SelectionChanged({
-            Update-AutoOptionUI 'Schedule' $AutoScheduleBox.SelectedItem
+            Update-AutoScheduleAvailability
             if ($script:SpotlightEnabled) {
                 Update-SpotlightScheduledTaskAsync -Enable $true
                 Save-Settings
             }
         })
-    Update-AutoOptionUI 'Schedule' $AutoScheduleBox.SelectedItem
 }
 Update-AutoOptionUI 'Desktop' $AutoDesktopSourceBox.SelectedItem
 Update-AutoOptionUI 'LockScreen' $AutoLockScreenSourceBox.SelectedItem
+Update-AutoScheduleAvailability
 
 if ($SpotlightSetBtn -and $SpotlightOptionsPopup) {
     $script:spotlightPopupClosedAt = [DateTime]::MinValue
@@ -7243,6 +7423,7 @@ if ($SpotlightSetBtn -and $SpotlightOptionsPopup) {
     # animation) so this flyout feels consistent with the rest of the app.
     $SpotlightOptionsPopup.Add_Opened({
             Write-InteractionLog "[AUTO_OPTIONS_OPEN] Automatic wallpaper schedule options opened"
+            Update-AutoScheduleAvailability
             try {
                 $source = [System.Windows.Interop.HwndSource]::FromVisual($SpotlightOptionsPopup.Child)
                 if ($source -and $source.Handle -ne [IntPtr]::Zero) {
@@ -7901,11 +8082,21 @@ $window.Add_ContentRendered({
         $RegionBox.Add_SelectionChanged({ Load-Gallery })
         Load-Gallery
 
-        # Auto-Wallpaper catch-up: if auto daily is enabled and today's wallpaper hasn't been applied yet, catch up immediately!
+        # Auto-Wallpaper catch-up: if auto is enabled and either target is due, catch up immediately!
         if ($script:SpotlightEnabled) {
-            $today = Get-Date -Format 'yyyyMMdd'
             $currentSettings = Load-Settings
-            if (-not $currentSettings.LastAutoAppliedDate -or $currentSettings.LastAutoAppliedDate -ne $today) {
+            $deskSrc = if ($currentSettings.AutoDesktopSource) { [string]$currentSettings.AutoDesktopSource } else { 'Bing' }
+            $lockSrc = if ($currentSettings.AutoLockScreenSource) { [string]$currentSettings.AutoLockScreenSource } else { 'Bing' }
+            $schedMode = if ($currentSettings.AutoSchedule) { [string]$currentSettings.AutoSchedule } else { 'Daily' }
+            $legacyDate = if ($currentSettings.LastAutoAppliedDate) { [string]$currentSettings.LastAutoAppliedDate } else { '' }
+            $now = Get-Date
+            $lastDeskAt = [string]$currentSettings.LastDesktopAppliedAt
+            $lastLockAt = [string]$currentSettings.LastLockAppliedAt
+            $allowLegacyFallback = ([string]::IsNullOrWhiteSpace($lastDeskAt) -and [string]::IsNullOrWhiteSpace($lastLockAt))
+            $deskDue = Test-AutoTargetDue -Source $deskSrc -LastSource ([string]$currentSettings.LastAutoDesktopSource) -LastAppliedAt $lastDeskAt -LegacyAppliedDate $legacyDate -AllowLegacyDateFallback $allowLegacyFallback -ScheduleMode $schedMode -Now $now
+            $lockDue = Test-AutoTargetDue -Source $lockSrc -LastSource ([string]$currentSettings.LastAutoLockSource) -LastAppliedAt $lastLockAt -LegacyAppliedDate $legacyDate -AllowLegacyDateFallback $allowLegacyFallback -ScheduleMode $schedMode -Now $now
+
+            if ($deskDue -or $lockDue) {
                 $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { (Join-Path $PSScriptRoot 'Bing-Wallpaper-UI.ps1') }
                 $powershellExe = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
                 $conhostExe = Join-Path $env:WINDIR 'System32\conhost.exe'
