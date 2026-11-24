@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$AutoApply,
     [string]$Region = 'en-US',
@@ -219,7 +219,7 @@ function Ensure-AutoUpdater {
 }
 
 
-if (-not ('BingWallpaperNative' -as [type])) {
+if (-not $AutoApply -and -not ('BingWallpaperNative' -as [type])) {
     # CORE: only what's needed synchronously before/at window creation -
     # taskbar app-id, Mica/dark title bar, chrome helper, and SystemParametersInfo.
     $script:nativeCsSourceCore = @'
@@ -490,9 +490,19 @@ public static class AutoScapeChromeHelper
     # almost always succeeds. So retry with fresh temp files before troubling
     # the user with a dialog.
     $transientCompileFailure = 'Could not find file|being used by another process|process cannot access the file|Access is denied'
+    $nativeTempDir = Join-Path $script:autoScapeRoot 'tmp'
+    if (-not (Test-Path -LiteralPath $nativeTempDir)) {
+        try { New-Item -ItemType Directory -Path $nativeTempDir -Force | Out-Null } catch {}
+    }
     $coreCompileError = $null
     for ($compileAttempt = 1; $compileAttempt -le 3; $compileAttempt++) {
+        $origTemp = $env:TEMP
+        $origTmp = $env:TMP
         try {
+            if (Test-Path -LiteralPath $nativeTempDir) {
+                $env:TEMP = $nativeTempDir
+                $env:TMP = $nativeTempDir
+            }
             Add-Type -TypeDefinition $script:nativeCsSourceCore -ReferencedAssemblies WindowsBase, PresentationCore, PresentationFramework -Language CSharp -ErrorAction Stop
             $coreCompileError = $null
             if ($compileAttempt -eq 1) {
@@ -516,11 +526,15 @@ public static class AutoScapeChromeHelper
                 break
             }
             if ($compileAttempt -lt 3) {
-                Start-Sleep -Milliseconds (300 * $compileAttempt)
+                Start-Sleep -Milliseconds (1000 * $compileAttempt)
             }
         }
+        finally {
+            $env:TEMP = $origTemp
+            $env:TMP = $origTmp
+        }
     }
-    if ($coreCompileError) {
+    if ($coreCompileError -and -not $AutoApply) {
         Show-AppErrorDialog `
             -Message "Native helper compilation failed. AutoScape will not work correctly.`n`n$($coreCompileError.Message)`n`nThis is often caused by antivirus/EDR software blocking runtime C# compilation (csc.exe). Check that AutoScape / csc.exe isn't being blocked, then restart the app." `
             -Title "AutoScape: native compile failed"
@@ -1182,17 +1196,26 @@ function Start-DeferredNativeExtraCompile {
     if ($script:nativeExtraContext) { return }
     if ($script:nativeExtraCompileFailed) { return }
 
+    $nativeTempDir = Join-Path $script:autoScapeRoot 'tmp'
+    if (-not (Test-Path -LiteralPath $nativeTempDir)) {
+        try { New-Item -ItemType Directory -Path $nativeTempDir -Force | Out-Null } catch {}
+    }
     $ps = [powershell]::Create()
     [void]$ps.AddScript({
-            param([string]$SourceExtra)
+            param([string]$SourceExtra, [string]$PrivateTempDir)
             # Same transient %TEMP% file-loss race as the core compile (csc.exe
-            # output locked/swept away between write and load) - retry a couple
-            # of times with fresh temp files before reporting a real failure.
-            # Genuine C# compile errors are still reported immediately.
+            # output locked/swept away between write and load) - isolate into
+            # AutoScape's private temp folder and retry before giving up.
             $transientCompileFailure = 'Could not find file|being used by another process|process cannot access the file|Access is denied'
             $lastError = $null
             for ($compileAttempt = 1; $compileAttempt -le 3; $compileAttempt++) {
+                $origTemp = $env:TEMP
+                $origTmp = $env:TMP
                 try {
+                    if ($PrivateTempDir -and (Test-Path -LiteralPath $PrivateTempDir)) {
+                        $env:TEMP = $PrivateTempDir
+                        $env:TMP = $PrivateTempDir
+                    }
                     Add-Type -TypeDefinition $SourceExtra -ReferencedAssemblies @(
                         'PresentationCore', 'PresentationFramework', 'WindowsBase', 'System.Xaml', 'System.Net.Http'
                     ) -Language CSharp -ErrorAction Stop
@@ -1207,12 +1230,16 @@ function Start-DeferredNativeExtraCompile {
                         break
                     }
                     if ($compileAttempt -lt 3) {
-                        Start-Sleep -Milliseconds (300 * $compileAttempt)
+                        Start-Sleep -Milliseconds (1000 * $compileAttempt)
                     }
+                }
+                finally {
+                    $env:TEMP = $origTemp
+                    $env:TMP = $origTmp
                 }
             }
             return @{ Success = $false; Error = $lastError }
-        }).AddArgument($script:nativeCsSourceExtra)
+        }).AddArgument($script:nativeCsSourceExtra).AddArgument($nativeTempDir)
 
     $asyncOp = $ps.BeginInvoke()
     $script:nativeExtraContext = @{ PS = $ps; AsyncOp = $asyncOp }
@@ -1616,6 +1643,35 @@ function Get-CurrentDesktopWallpaperStyle {
     return 'Fit'
 }
 
+function Set-DesktopWallpaperNative {
+    param([Parameter(Mandatory = $true)][string]$ImagePath)
+
+    if ('BingWallpaperNative' -as [type]) {
+        return [BingWallpaperNative]::SystemParametersInfo(20, 0, $ImagePath, 3)
+    }
+
+    # Define P/Invoke purely in memory so -AutoApply never invokes csc.exe or writes to %TEMP%.
+    if (-not ('AutoScapeSpiNative' -as [type])) {
+        $asmName = New-Object System.Reflection.AssemblyName('AutoScapeSpiDynamic')
+        $asmBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($asmName, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+        $modBuilder = $asmBuilder.DefineDynamicModule('AutoScapeSpiModule')
+        $typeBuilder = $modBuilder.DefineType('AutoScapeSpiNative', 'Public,Abstract,Sealed')
+        $pinvoke = $typeBuilder.DefinePInvokeMethod(
+            'SystemParametersInfo',
+            'user32.dll',
+            [System.Reflection.MethodAttributes]'Public,Static,PinvokeImpl',
+            [System.Reflection.CallingConventions]::Standard,
+            [bool],
+            @([int], [int], [string], [int]),
+            [System.Runtime.InteropServices.CallingConvention]::Winapi,
+            [System.Runtime.InteropServices.CharSet]::Unicode
+        )
+        $pinvoke.SetImplementationFlags([System.Reflection.MethodImplAttributes]::PreserveSig)
+        [void]$typeBuilder.CreateType()
+    }
+    return [AutoScapeSpiNative]::SystemParametersInfo(20, 0, $ImagePath, 3)
+}
+
 function Set-BingImage {
     param(
         $Image,
@@ -1641,7 +1697,7 @@ function Set-BingImage {
 
     if ($Target -eq 'Desktop' -or $Target -eq 'Both') {
         Set-DesktopWallpaperStyle -Style $Style
-        if (![BingWallpaperNative]::SystemParametersInfo(20, 0, $cachePath, 3)) {
+        if (!(Set-DesktopWallpaperNative -ImagePath $cachePath)) {
             throw 'Windows could not apply the downloaded image as desktop wallpaper.'
         }
     }
